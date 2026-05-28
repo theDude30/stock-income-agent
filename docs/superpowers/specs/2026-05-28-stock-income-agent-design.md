@@ -102,7 +102,7 @@ On dashboard load, the API enriches open positions with latest prices from yfina
 
 ## 5. Data model
 
-11 tables. PK = primary key. FK columns marked.
+14 tables. PK = primary key. FK columns marked.
 
 ### `stocks` — S&P 500 universe
 `ticker (PK)`, `name`, `sector`, `industry`, `active (bool)`, `added_at`, `removed_at`. Refreshed monthly.
