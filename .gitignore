@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+backend/.venv/
+backend/uv.lock-journal
+
+# Node
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Env / local
+.env.local
+.env.*.local
+*.local
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
+
+# Postgres data (mounted volume)
+data/postgres/
+
+# Backups
+backups/
