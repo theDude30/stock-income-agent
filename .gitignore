@@ -7,7 +7,6 @@ __pycache__/
 .coverage
 htmlcov/
 backend/.venv/
-backend/uv.lock-journal
 
 # Node
 node_modules/
