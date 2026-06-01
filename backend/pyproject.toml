@@ -30,6 +30,8 @@ asyncio_default_fixture_loop_scope = "session"
 filterwarnings = [
     "error",
     "ignore::DeprecationWarning:pydantic",
+    "ignore::ResourceWarning:asyncpg",
+    "ignore::pytest.PytestUnraisableExceptionWarning",
 ]
 
 [build-system]

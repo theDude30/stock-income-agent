@@ -1,4 +1,5 @@
 import pytest
+from pydantic import ValidationError
 
 
 def test_settings_loads_postgres_url_from_components(monkeypatch):
@@ -27,5 +28,5 @@ def test_settings_requires_postgres_password(monkeypatch):
     monkeypatch.setenv("POSTGRES_PORT", "5432")
     monkeypatch.setenv("APP_ENV", "test")
 
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         Settings()
