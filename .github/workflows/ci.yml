@@ -4,6 +4,8 @@ on:
   push:
     branches: [main, master]
   pull_request:
+  schedule:
+    - cron: "0 6 * * *"   # daily at 06:00 UTC
 
 jobs:
   backend:
@@ -61,3 +63,40 @@ jobs:
       - name: Test
         working-directory: frontend
         run: npm test -- --run
+
+  nightly-yfinance:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule'
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: stockagent
+          POSTGRES_PASSWORD: ci_password
+          POSTGRES_DB: stockagent
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U stockagent"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install uv
+        run: pip install uv==0.5.4
+      - name: Install backend deps
+        working-directory: backend
+        run: uv pip install --system -e ".[dev]"
+      - name: Slow integration tests
+        working-directory: backend
+        env:
+          POSTGRES_USER: stockagent
+          POSTGRES_PASSWORD: ci_password
+          POSTGRES_DB: stockagent
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          APP_ENV: test
+        run: pytest -v -m slow
