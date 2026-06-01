@@ -244,10 +244,31 @@ Validation errors return HTTP 422 with `details` listing the failing fields (Fas
 
 ## Local development
 
+### Requirements
+
+| Tool | Version | Notes |
+|---|---|---|
+| Python | 3.12.x | Backend uses `requires-python = ">=3.12,<3.13"`. Manage with pyenv if needed. |
+| Node.js | 20.x (18 works) | Frontend Dockerfile pins Node 20; Vite 5 / Vitest 2 also run on Node 18. |
+| npm | 10.x | Ships with Node 20. |
+| Docker | 24+ | Or any Docker-compatible runtime (e.g. Podman with the docker socket alias). Needed for the full stack and for backend tests (testcontainers pulls `postgres:16-alpine`). |
+| Docker Compose | v2 (`docker compose`) | Bundled with modern Docker. |
+| uv | 0.5.4 | Python package manager. Install with `pip install uv==0.5.4`. |
+
+The host Docker daemon must be running before backend tests or `make up`. Testcontainers can also be run with `TESTCONTAINERS_RYUK_DISABLED=true` if your runtime doesn't support its watchdog container.
+
+### Configure
+
 ```bash
 cp .env.example .env.local
 # Edit .env.local; at minimum set POSTGRES_PASSWORD to something other than `changeme`.
+```
 
+### Option A — full stack via Docker Compose
+
+Brings up Postgres + backend (with Alembic migrations) + frontend (nginx) in three containers.
+
+```bash
 make up         # build + start all containers
 make logs       # follow logs
 ```
@@ -257,12 +278,45 @@ Then visit:
 - API:       <http://localhost:8000>
 - Health:    <http://localhost:8000/health>
 
+### Option B — backend only, on host
+
+Useful for fast iteration on the API. Uses a local uv-managed venv and a testcontainers-launched Postgres instead of the compose `db` service.
+
+```bash
+cd backend
+uv venv                                # creates .venv/
+uv pip install -e ".[dev]"             # installs runtime + dev deps
+.venv/bin/pytest -v                    # 7 tests (config, db, alembic, health)
+.venv/bin/ruff check .                 # lint
+```
+
+To run the API against a manually-started Postgres:
+
+```bash
+export POSTGRES_USER=stockagent POSTGRES_PASSWORD=devpass \
+       POSTGRES_DB=stockagent POSTGRES_HOST=localhost POSTGRES_PORT=5432
+.venv/bin/alembic upgrade head
+.venv/bin/uvicorn app.main:app --reload --port 8000
+```
+
+### Option C — frontend only, on host
+
+Useful for fast iteration on the React app. Vite dev server proxies `/api/*` to the URL configured in `vite.config.ts` (default `http://api:8000` — change to `http://localhost:8000` if running the API from Option B).
+
+```bash
+cd frontend
+npm install
+npm test -- --run      # vitest: 4 tests (api/health, App)
+npm run dev            # http://localhost:3000
+npm run build          # tsc -b && vite build → frontend/dist/
+```
+
 ### Common commands
 
 ```bash
-make up                  # start
-make down                # stop
-make test                # run all tests (backend + frontend)
+make up                  # start full stack
+make down                # stop everything
+make test                # run all tests (backend + frontend) via compose
 make test-backend        # backend only (pytest + testcontainers)
 make test-frontend       # frontend only (vitest)
 make lint                # ruff + eslint
@@ -303,7 +357,7 @@ Makefile
 
 | Phase | Status | What's in it |
 |---|---|---|
-| **1. Foundation** | 🟡 in progress | Containerized stack, FastAPI + Postgres + React skeleton, `/health` endpoint, Alembic infra, CI |
+| **1. Foundation** | ✅ done | Containerized stack, FastAPI + Postgres + React skeleton, `/health` endpoint, Alembic infra, CI |
 | **2. Data ingestion** | planned | yfinance prices/dividends/options + news RSS; daily pipeline shell |
 | **3. Analysis & recommendations** | planned | DividendScreener, DividendSafetyAnalyst LLM, OptionsRecommender LLM, Recommender |
 | **4. Paper trading & income tracking** | planned | Executor, IncomeTracker, full dividend + covered-call simulation, feedback |
