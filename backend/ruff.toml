@@ -7,3 +7,4 @@ ignore = ["E501"]
 
 [lint.per-file-ignores]
 "tests/**" = ["B011"]
+"app/pipeline/steps/base.py" = ["N818"]
