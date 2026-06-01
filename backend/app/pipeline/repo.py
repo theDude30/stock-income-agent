@@ -1,8 +1,8 @@
 from collections.abc import Iterable
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, text, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -96,8 +96,6 @@ class PipelineRepo:
         return len(values)
 
     async def last_price_date(self, ticker: str) -> date | None:
-        from sqlalchemy import func
-
         row = await self.session.execute(
             select(func.max(Price.date)).where(Price.ticker == ticker)
         )
@@ -129,8 +127,6 @@ class PipelineRepo:
         return len(values)
 
     async def last_dividend_ex_date(self, ticker: str) -> date | None:
-        from sqlalchemy import func
-
         row = await self.session.execute(
             select(func.max(DividendHistory.ex_date)).where(DividendHistory.ticker == ticker)
         )
@@ -191,8 +187,6 @@ class PipelineRepo:
     async def top_tickers_by_ttm_yield(self, limit: int, today: date) -> list[str]:
         """Trailing-12-month dividends divided by latest close. Used as a v1 watchlist proxy
         until Sub-project 3's screener provides a real ranking."""
-        from sqlalchemy import func, text
-
         one_year_ago = (
             date(today.year - 1, today.month, today.day)
             if not (today.month == 2 and today.day == 29)
@@ -244,8 +238,6 @@ class PipelineRepo:
         errors: dict,
         now: datetime | None = None,
     ) -> None:
-        from datetime import UTC, datetime as dt
-
         await self.session.execute(
             update(PipelineRun)
             .where(PipelineRun.id == run_id)
@@ -253,7 +245,7 @@ class PipelineRepo:
                 status=status,
                 steps_completed=completed,
                 errors=errors,
-                finished_at=now or dt.now(tz=UTC),
+                finished_at=now or datetime.now(tz=UTC),
             )
         )
 

@@ -2,7 +2,6 @@ import os
 import subprocess
 import sys
 from datetime import UTC, date, datetime
-from decimal import Decimal
 
 import pytest
 
