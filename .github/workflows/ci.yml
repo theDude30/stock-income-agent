@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: stockagent
+          POSTGRES_PASSWORD: ci_password
+          POSTGRES_DB: stockagent
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U stockagent"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install uv
+        run: pip install uv==0.5.4
+      - name: Install backend deps
+        working-directory: backend
+        run: uv pip install --system -e ".[dev]"
+      - name: Lint
+        working-directory: backend
+        run: ruff check .
+      - name: Test
+        working-directory: backend
+        env:
+          POSTGRES_USER: stockagent
+          POSTGRES_PASSWORD: ci_password
+          POSTGRES_DB: stockagent
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          APP_ENV: test
+        run: pytest -v
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm install
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+      - name: Test
+        working-directory: frontend
+        run: npm test -- --run
