@@ -25,11 +25,13 @@ class OptionsStep(Step):
 
     async def run(self, ctx: StepContext) -> StepResult:
         today = ctx.now().date()
-        # v1: watchlist = top N by trailing-12mo dividend yield.
-        # Sub-project 3's screener will replace this with dividend_quality_score ranking.
-        watchlist = await ctx.repo.top_tickers_by_ttm_yield(
-            limit=self.watchlist_size, today=today
-        )
+        # Prefer the screener's dividend_quality_score ranking; fall back to the
+        # trailing-12mo yield proxy when no screening run has completed yet.
+        run_id = await ctx.repo.latest_screening_run_id()
+        if run_id is not None:
+            watchlist = await ctx.repo.top_screened_tickers(run_id, limit=self.watchlist_size)
+        else:
+            watchlist = await ctx.repo.top_tickers_by_ttm_yield(limit=self.watchlist_size, today=today)
         # Held tickers always included. None for now; placeholder for Sub-project 4.
         held: list[str] = []
         tickers = list(dict.fromkeys(list(watchlist) + held))  # preserve order, dedupe
