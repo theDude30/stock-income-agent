@@ -67,6 +67,11 @@ class PipelineRepo:
         rows = await self.session.execute(select(Stock.ticker).where(Stock.active.is_(True)).order_by(Stock.ticker))
         return [r[0] for r in rows.all()]
 
+    async def held_tickers(self) -> list[str]:
+        """No positions table until Sub-project 4. Returns [] so the options recommender
+        and sell_position logic stay dormant but wired."""
+        return []
+
     # ----- prices -----
 
     async def upsert_prices(self, ticker: str, bars: Iterable[PriceBar]) -> int:
