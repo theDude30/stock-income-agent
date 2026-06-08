@@ -3,6 +3,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
+from app.llm.base import LLMClient
 from app.pipeline.repo import PipelineRepo
 from app.sources.base import Sources
 
@@ -29,6 +30,7 @@ class StepContext:
     sources: Sources
     run_id: int
     now: Callable[[], datetime] = field(default=_utc_now)
+    llm: LLMClient | None = None
 
 
 class Step(ABC):
