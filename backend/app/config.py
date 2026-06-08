@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     app_env: str = Field(default="development")
     log_level: str = Field(default="INFO")
     anthropic_api_key: str = Field(default="")
+    llm_model: str = Field(default="claude-sonnet-4-6")
 
     @property
     def postgres_url(self) -> str:

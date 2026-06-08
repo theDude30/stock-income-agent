@@ -30,3 +30,15 @@ def test_settings_requires_postgres_password(monkeypatch):
 
     with pytest.raises(ValidationError):
         Settings()
+
+
+def test_llm_model_default(monkeypatch):
+    monkeypatch.setenv("POSTGRES_USER", "u")
+    monkeypatch.setenv("POSTGRES_PASSWORD", "p")
+    monkeypatch.setenv("POSTGRES_DB", "d")
+    monkeypatch.setenv("POSTGRES_HOST", "h")
+    monkeypatch.setenv("POSTGRES_PORT", "5432")
+
+    from app.config import Settings
+
+    assert Settings().llm_model == "claude-sonnet-4-6"
