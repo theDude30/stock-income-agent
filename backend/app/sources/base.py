@@ -52,6 +52,18 @@ class NewsItemDTO:
     published_at: datetime
 
 
+@dataclass(frozen=True)
+class FundamentalsSnapshot:
+    fiscal_period: str
+    revenue: float | None
+    eps: float | None
+    fcf: float | None
+    net_income: float | None
+    total_debt: float | None
+    total_equity: float | None
+    dividends_paid: float | None
+
+
 class UniverseSource(Protocol):
     def fetch_sp500(self) -> Iterable[StockMeta]: ...
 
@@ -72,6 +84,10 @@ class NewsSource(Protocol):
     def fetch(self, ticker: str, since: datetime | None) -> Iterable[NewsItemDTO]: ...
 
 
+class FundamentalsSource(Protocol):
+    def fetch(self, ticker: str) -> Iterable[FundamentalsSnapshot]: ...
+
+
 @dataclass
 class Sources:
     universe: UniverseSource
@@ -79,3 +95,4 @@ class Sources:
     dividends: DividendSource
     options: OptionsSource
     news: NewsSource
+    fundamentals: "FundamentalsSource | None" = None

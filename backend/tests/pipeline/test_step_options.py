@@ -59,6 +59,14 @@ async def test_options_step_limits_to_top_watchlist(session, monkeypatch, pg_con
     )
 
     repo = PipelineRepo(session)
+    # Force the TTM-yield fallback path (this test targets `top_tickers_by_ttm_yield`
+    # specifically). Without this, a `Screening` row left behind by another test in
+    # the shared session-scoped DB would make `latest_screening_run_id` non-null and
+    # redirect the watchlist through `top_screened_tickers` instead.
+    async def _no_screening_run(self):
+        return None
+
+    monkeypatch.setattr(PipelineRepo, "latest_screening_run_id", _no_screening_run)
     # Use unique tickers for this test that won't collide with carryover state.
     await repo.upsert_stocks(
         [

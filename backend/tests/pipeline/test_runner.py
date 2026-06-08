@@ -73,8 +73,8 @@ async def test_runner_records_success(session, monkeypatch, pg_container):
     assert summary.status == "success"
     assert summary.steps_completed == ["ok"]
 
-    runs = await ctx.repo.recent_runs(limit=1)
-    assert runs[0].status == "success"
+    run = await ctx.repo.get_run(summary.run_id)
+    assert run is not None and run.status == "success"
 
 
 @pytest.mark.asyncio(loop_scope="session")

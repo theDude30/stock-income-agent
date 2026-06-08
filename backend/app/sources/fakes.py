@@ -3,6 +3,7 @@ from datetime import date, datetime
 
 from app.sources.base import (
     DividendEvent,
+    FundamentalsSnapshot,
     NewsItemDTO,
     OptionsChainRow,
     PriceBar,
@@ -57,3 +58,11 @@ class InMemoryNewsSource:
         if since is None:
             return list(rows)
         return [n for n in rows if n.published_at >= since]
+
+
+class InMemoryFundamentalsSource:
+    def __init__(self, data: dict[str, list[FundamentalsSnapshot]]) -> None:
+        self._data = data
+
+    def fetch(self, ticker: str) -> Iterable[FundamentalsSnapshot]:
+        return list(self._data.get(ticker, []))
