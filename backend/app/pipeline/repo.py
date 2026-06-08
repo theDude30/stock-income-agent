@@ -307,6 +307,34 @@ class PipelineRepo:
         )
         return row.scalar_one_or_none()
 
+    async def ttm_dividends(self, ticker: str, today: date) -> float:
+        one_year_ago = (
+            date(today.year - 1, today.month, today.day)
+            if not (today.month == 2 and today.day == 29) else date(today.year - 1, 2, 28)
+        )
+        row = await self.session.execute(
+            select(func.coalesce(func.sum(DividendHistory.amount_per_share), 0))
+            .where(DividendHistory.ticker == ticker)
+            .where(DividendHistory.ex_date >= one_year_ago)
+        )
+        return float(row.scalar() or 0.0)
+
+    async def consecutive_years_paid(self, ticker: str) -> int:
+        row = await self.session.execute(
+            select(
+                func.count(func.distinct(func.extract("year", DividendHistory.ex_date)))
+            ).where(DividendHistory.ticker == ticker)
+        )
+        return int(row.scalar() or 0)
+
+    async def latest_close(self, ticker: str) -> float | None:
+        row = await self.session.execute(
+            select(Price.close).where(Price.ticker == ticker)
+            .order_by(Price.date.desc()).limit(1)
+        )
+        v = row.scalar()
+        return float(v) if v is not None else None
+
     async def fundamentals_history(self, ticker: str, limit: int = 8) -> list[Fundamentals]:
         rows = await self.session.execute(
             select(Fundamentals).where(Fundamentals.ticker == ticker)
