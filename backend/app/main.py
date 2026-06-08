@@ -8,6 +8,7 @@ from app.api.health import router as health_router
 from app.api.pipeline import _make_llm, _make_sources
 from app.api.pipeline import router as pipeline_router
 from app.api.recommendations import router as recommendations_router
+from app.api.stocks import router as stocks_router
 from app.db import get_session_factory
 from app.pipeline.repo import PipelineRepo
 from app.pipeline.runner import run_pipeline
@@ -52,6 +53,7 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
     app.include_router(pipeline_router)
     app.include_router(recommendations_router)
+    app.include_router(stocks_router)
     return app
 
 
