@@ -1,12 +1,11 @@
 import os
 import subprocess
 import sys
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 
 import pytest
 
 from app.llm.base import FakeLLMClient, LLMUsage
-from app.llm.schemas import CallPick
 from app.pipeline.repo import PipelineRepo
 from app.pipeline.steps.base import StepContext
 from app.pipeline.steps.options_recommender import OptionsRecommenderStep
@@ -38,11 +37,11 @@ async def test_options_recommender_dormant_when_no_holdings(session):
     sources = Sources(universe=None, prices=None, dividends=None, options=None, news=None)
     ctx = StepContext(repo=repo, sources=sources, run_id=run_id, now=_now, llm=llm)
 
-    result = await OptionsRecommViaHelper(ctx)
+    result = await _run_options_recommender(ctx)
     assert result.ok_count == 0
     recs = await repo.list_recommendations(status="pending", type_="sell_covered_call")
     assert recs == []
 
 
-async def OptionsRecommViaHelper(ctx):
+async def _run_options_recommender(ctx):
     return await OptionsRecommenderStep().run(ctx)

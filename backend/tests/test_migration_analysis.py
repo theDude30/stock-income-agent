@@ -5,8 +5,6 @@ import sys
 import pytest
 from sqlalchemy import text
 
-from app.db import get_session_factory
-
 
 @pytest.fixture(scope="module", autouse=True)
 def _migrate(pg_container):
