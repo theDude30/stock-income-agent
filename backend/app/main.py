@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from app.api.health import router as health_router
 from app.api.pipeline import _make_llm, _make_sources
 from app.api.pipeline import router as pipeline_router
+from app.api.recommendations import router as recommendations_router
 from app.db import get_session_factory
 from app.pipeline.repo import PipelineRepo
 from app.pipeline.runner import run_pipeline
@@ -50,6 +51,7 @@ def create_app() -> FastAPI:
     app = FastAPI(title="Stock Income Agent", version="0.1.0", lifespan=lifespan)
     app.include_router(health_router)
     app.include_router(pipeline_router)
+    app.include_router(recommendations_router)
     return app
 
 
