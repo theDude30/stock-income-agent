@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from fastapi import FastAPI
 
 from app.api.health import router as health_router
-from app.api.pipeline import _make_sources
+from app.api.pipeline import _make_llm, _make_sources
 from app.api.pipeline import router as pipeline_router
 from app.db import get_session_factory
 from app.pipeline.repo import PipelineRepo
@@ -26,6 +26,7 @@ async def _scheduled_pipeline_job() -> None:
             sources=_make_sources(),
             run_id=0,
             now=lambda: datetime.now(tz=UTC),
+            llm=_make_llm(),
         )
         try:
             await run_pipeline(ctx, steps=default_steps())

@@ -3,12 +3,16 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 
+from app.config import get_settings
 from app.db import get_session_factory
+from app.llm.anthropic_client import AnthropicLLMClient
+from app.llm.base import LLMClient
 from app.pipeline.repo import PipelineRepo
 from app.pipeline.runner import run_pipeline
 from app.pipeline.steps import default_steps
 from app.pipeline.steps.base import StepContext
 from app.sources.base import Sources
+from app.sources.fundamentals_yfinance import YFinanceFundamentalsSource
 from app.sources.wikipedia_source import WikipediaSP500Source
 from app.sources.yahoo_rss_source import YahooRssNewsSource
 from app.sources.yfinance_source import (
@@ -23,6 +27,9 @@ logger = logging.getLogger(__name__)
 # Test seam: set to a Sources instance to override production wiring.
 _sources_override: Sources | None = None
 
+# Test seam: set to an LLMClient instance to override production wiring.
+_llm_override: LLMClient | None = None
+
 
 def _make_sources() -> Sources:
     if _sources_override is not None:
@@ -33,7 +40,15 @@ def _make_sources() -> Sources:
         dividends=YFinanceDividendSource(),
         options=YFinanceOptionsSource(),
         news=YahooRssNewsSource(),
+        fundamentals=YFinanceFundamentalsSource(),
     )
+
+
+def _make_llm() -> LLMClient:
+    if _llm_override is not None:
+        return _llm_override
+    settings = get_settings()
+    return AnthropicLLMClient(model=settings.llm_model, api_key=settings.anthropic_api_key)
 
 
 @router.get("/runs")
@@ -89,7 +104,7 @@ async def _run_in_background(run_id: int, step_names: list[str]) -> None:
     factory = get_session_factory()
     async with factory() as session:
         repo = PipelineRepo(session)
-        ctx = StepContext(repo=repo, sources=_make_sources(), run_id=run_id)
+        ctx = StepContext(repo=repo, sources=_make_sources(), run_id=run_id, llm=_make_llm())
         try:
             await run_pipeline(ctx, steps=steps, existing_run_id=run_id)
             await session.commit()
