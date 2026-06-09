@@ -166,69 +166,71 @@ Key principles:
 
 All endpoints are prefixed `/` on the api container (port 8000); the React frontend reaches them via `/api/*` (nginx proxy in prod, Vite proxy in dev).
 
-> **Status:** Only `/health` exists today (Foundation sub-project). The rest of these endpoints land in subsequent sub-projects per the plan.
+> **Status:** Health, pipeline, recommendations, and a subset of stocks endpoints are implemented (Sub-projects 1–3). Portfolio, trades, learning, and settings endpoints land in Sub-projects 4–5 per the plan.
 
 ### Health & ops
 
 | Method | Path | Status | Description |
 |---|---|---|---|
 | `GET` | `/health` | ✅ implemented | Liveness + DB ping. Returns 200 `{"status":"ok","database":"ok"}` or 503 `{"status":"degraded","database":"down"}` |
-| `GET` | `/pipeline/runs` | planned | Last 30 pipeline runs with status, duration, errors |
-| `POST` | `/pipeline/run?step=<name>` | planned | Manually trigger an individual step (debugging) |
+| `GET` | `/pipeline/runs` | ✅ implemented | Last 30 pipeline runs with status, duration, errors (`?limit=`) |
+| `GET` | `/pipeline/runs/{run_id}` | ✅ implemented | Full run detail incl. errors |
+| `POST` | `/pipeline/run?step=<name>` | ✅ implemented | Manually trigger an individual step; 202 Accepted, runs in background |
 
 ### Stocks & data
 
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/stocks` | List universe (S&P 500); filter by sector, dividend status |
-| `GET` | `/stocks/{ticker}` | Stock detail + latest signals |
-| `GET` | `/stocks/{ticker}/prices?from=&to=` | OHLCV history |
-| `GET` | `/stocks/{ticker}/dividends` | Dividend history |
-| `GET` | `/stocks/{ticker}/news?limit=` | Recent news for ticker |
-| `GET` | `/stocks/{ticker}/safety-score` | Latest LLM safety score + reasoning |
+| Method | Path | Status | Description |
+|---|---|---|---|
+| `GET` | `/stocks` | planned | List universe (S&P 500); filter by sector, dividend status |
+| `GET` | `/stocks/{ticker}` | planned | Stock detail + latest signals |
+| `GET` | `/stocks/{ticker}/prices?from=&to=` | planned | OHLCV history |
+| `GET` | `/stocks/{ticker}/dividends` | planned | Dividend history |
+| `GET` | `/stocks/{ticker}/news?limit=` | planned | Recent news for ticker |
+| `GET` | `/stocks/{ticker}/safety-score` | ✅ implemented | Latest LLM safety score + reasoning |
+| `GET` | `/screenings?run_id=` | ✅ implemented | Dividend-screener results for a run (defaults to latest run) |
 
 ### Recommendations
 
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/recommendations?status=&type=` | List recs, default `status=pending` |
-| `GET` | `/recommendations/{id}` | Full rec with reasoning + signals snapshot |
-| `POST` | `/recommendations/{id}/approve` | User approves (Phase 1) |
-| `POST` | `/recommendations/{id}/reject` | User rejects with optional reason text |
+| Method | Path | Status | Description |
+|---|---|---|---|
+| `GET` | `/recommendations?status=&type=` | ✅ implemented | List recs, default `status=pending` |
+| `GET` | `/recommendations/{id}` | ✅ implemented | Full rec with reasoning + signals snapshot |
+| `POST` | `/recommendations/{id}/approve` | ✅ implemented | User approves (Phase 1) |
+| `POST` | `/recommendations/{id}/reject` | ✅ implemented | User rejects with optional reason text |
 
 ### Portfolio
 
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/portfolio/live` | Current positions with mark-to-market P&L (2-min price cache) |
-| `GET` | `/portfolio/holdings` | Open positions + yields + safety scores |
-| `GET` | `/portfolio/income?from=&to=` | Income events in range |
-| `GET` | `/portfolio/income/calendar?days=30` | Next-N-days projected income |
-| `GET` | `/portfolio/performance` | YTD return vs. SPY total return vs. 1-mo Treasury |
+| Method | Path | Status | Description |
+|---|---|---|---|
+| `GET` | `/portfolio/live` | planned | Current positions with mark-to-market P&L (2-min price cache) |
+| `GET` | `/portfolio/holdings` | planned | Open positions + yields + safety scores |
+| `GET` | `/portfolio/income?from=&to=` | planned | Income events in range |
+| `GET` | `/portfolio/income/calendar?days=30` | planned | Next-N-days projected income |
+| `GET` | `/portfolio/performance` | planned | YTD return vs. SPY total return vs. 1-mo Treasury |
 
 ### Trades & history
 
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/trades?from=&to=` | Append-only ledger |
-| `GET` | `/positions?status=` | Open and closed positions |
-| `GET` | `/positions/{id}` | Position with full trade history + feedback |
+| Method | Path | Status | Description |
+|---|---|---|---|
+| `GET` | `/trades?from=&to=` | planned | Append-only ledger |
+| `GET` | `/positions?status=` | planned | Open and closed positions |
+| `GET` | `/positions/{id}` | planned | Position with full trade history + feedback |
 
 ### Learning
 
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/lessons?active=true` | Current `agent_lessons` injected into prompts |
-| `POST` | `/lessons/{id}/ignore` | User toggles a lesson off |
-| `GET` | `/feedback?from=&to=` | Closed-position post-mortems |
+| Method | Path | Status | Description |
+|---|---|---|---|
+| `GET` | `/lessons?active=true` | planned | Current `agent_lessons` injected into prompts |
+| `POST` | `/lessons/{id}/ignore` | planned | User toggles a lesson off |
+| `GET` | `/feedback?from=&to=` | planned | Closed-position post-mortems |
 
 ### Settings
 
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/settings` | Current config (approval modes, safety rails, notification prefs) |
-| `PATCH` | `/settings` | Update config (e.g., flip `auto_approve.sell_covered_call`) |
-| `POST` | `/settings/kill-switch` | Immediately revert all auto-approval to manual |
+| Method | Path | Status | Description |
+|---|---|---|---|
+| `GET` | `/settings` | planned | Current config (approval modes, safety rails, notification prefs) |
+| `PATCH` | `/settings` | planned | Update config (e.g., flip `auto_approve.sell_covered_call`) |
+| `POST` | `/settings/kill-switch` | planned | Immediately revert all auto-approval to manual |
 
 ### Response shapes
 
@@ -286,7 +288,7 @@ Useful for fast iteration on the API. Uses a local uv-managed venv and a testcon
 cd backend
 uv venv                                # creates .venv/
 uv pip install -e ".[dev]"             # installs runtime + dev deps
-.venv/bin/pytest -v                    # 7 tests (config, db, alembic, health)
+.venv/bin/pytest -m "not slow" -v      # 66 tests; add -m slow for live-API tests
 .venv/bin/ruff check .                 # lint
 ```
 
@@ -358,8 +360,8 @@ Makefile
 | Phase | Status | What's in it |
 |---|---|---|
 | **1. Foundation** | ✅ done | Containerized stack, FastAPI + Postgres + React skeleton, `/health` endpoint, Alembic infra, CI |
-| **2. Data ingestion** | planned | yfinance prices/dividends/options + news RSS; daily pipeline shell |
-| **3. Analysis & recommendations** | planned | DividendScreener, DividendSafetyAnalyst LLM, OptionsRecommender LLM, Recommender |
+| **2. Data ingestion** | ✅ done | yfinance prices/dividends/options + news RSS; daily pipeline shell |
+| **3. Analysis & recommendations** | ✅ done | DividendScreener, DividendSafetyAnalyst LLM, OptionsRecommender LLM, Recommender |
 | **4. Paper trading & income tracking** | planned | Executor, IncomeTracker, full dividend + covered-call simulation, feedback |
 | **5. Dashboard & learning loop** | planned | All 5 React tabs wired, weekly Learner, alerts/notifier |
 | **Phase 2 (later)** | designed-in | Auto-approval per rec type, safety rails enforcement, kill switch |
