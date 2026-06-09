@@ -118,26 +118,26 @@ async def test_income_tracker_otm_call_expiry(session):
 @pytest.mark.asyncio(loop_scope="session")
 async def test_income_tracker_itm_call_assignment(session):
     repo = PipelineRepo(session)
-    await repo.upsert_stocks([StockMeta("PG", "P&G", "S", "B")], today=_today)
+    await repo.upsert_stocks([StockMeta("CVX", "Chevron", "E", "B")], today=_today)
     from app.models.stocks import Price
-    session.add(Price(ticker="PG", date=_today, open=Decimal("170"), high=Decimal("172"),
+    session.add(Price(ticker="CVX", date=_today, open=Decimal("170"), high=Decimal("172"),
                       low=Decimal("169"), close=Decimal("171"), adj_close=Decimal("171"), volume=200000))
     await session.flush()
     run_id = await repo.start_run(now=_now)
     stock_rec_id = await repo.insert_recommendation(
-        run_id=run_id, type="add_position", ticker="PG", confidence="high",
+        run_id=run_id, type="add_position", ticker="CVX", confidence="high",
         payload={}, reasoning="r", signals_snapshot={}, model="m", prompt_version="v", now=_open_date)
     stock_pos_id = await repo.open_position(
-        rec_id=stock_rec_id, ticker="PG", kind="stock",
-        shares=Decimal("100"), avg_entry_price=Decimal("160"),
+        rec_id=stock_rec_id, ticker="CVX", kind="stock",
+        shares=Decimal("100"), avg_entry_price=Decimal("150"),
         strike=None, expiration_date=None, now=_open_date)
     call_rec_id = await repo.insert_recommendation(
-        run_id=run_id, type="sell_covered_call", ticker="PG", confidence="high",
+        run_id=run_id, type="sell_covered_call", ticker="CVX", confidence="high",
         payload={}, reasoning="r", signals_snapshot={}, model="m", prompt_version="v", now=_open_date)
     call_pos_id = await repo.open_position(
-        rec_id=call_rec_id, ticker="PG", kind="short_call",
+        rec_id=call_rec_id, ticker="CVX", kind="short_call",
         shares=Decimal("1"), avg_entry_price=Decimal("2.00"),
-        strike=Decimal("165"), expiration_date=_today,  # ITM: close=171 >= strike=165
+        strike=Decimal("160"), expiration_date=_today,  # ITM: close=171 >= strike=160
         now=_open_date)
     await session.commit()
 
@@ -149,5 +149,5 @@ async def test_income_tracker_itm_call_assignment(session):
     stock_pos = await repo.get_position(stock_pos_id)
     assert stock_pos.status == "assigned"
     events = await repo.list_income_events()
-    # assignment_gain: (165 - 160) * 100 = 500
-    assert any(e.ticker == "PG" and e.type == "assignment_gain" and e.amount == Decimal("500") for e in events)
+    # assignment_gain: (160 - 150) * 100 = 1000
+    assert any(e.ticker == "CVX" and e.type == "assignment_gain" and e.amount == Decimal("1000") for e in events)
