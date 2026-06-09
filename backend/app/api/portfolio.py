@@ -1,6 +1,6 @@
 from datetime import date, timedelta
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
 from app.db import get_session_factory
 from app.pipeline.repo import PipelineRepo
@@ -17,9 +17,9 @@ async def holdings() -> list[dict]:
         result = []
         for pos in positions:
             close = await repo.latest_close(pos.ticker)
-            close_price = float(close) if close is not None else None
+            close_price = close
             unrealized_pnl = (
-                float((float(close) - float(pos.avg_entry_price)) * float(pos.shares))
+                float((close - float(pos.avg_entry_price)) * float(pos.shares))
                 if close is not None else None
             )
             # find active covered call on this ticker
@@ -28,8 +28,8 @@ async def holdings() -> list[dict]:
             if calls:
                 c = calls[0]
                 active_call = {
-                    "strike": float(c.strike) if c.strike else None,
-                    "expiration_date": c.expiration_date.isoformat() if c.expiration_date else None,
+                    "strike": float(c.strike) if c.strike is not None else None,
+                    "expiration_date": c.expiration_date.isoformat() if c.expiration_date is not None else None,
                     "premium": float(c.avg_entry_price),
                 }
             # get latest price date
@@ -54,7 +54,10 @@ async def holdings() -> list[dict]:
 
 
 @router.get("/income")
-async def income(from_: date | None = None, to: date | None = None) -> list[dict]:
+async def income(
+    from_: date | None = Query(None, alias="from"),
+    to: date | None = None,
+) -> list[dict]:
     factory = get_session_factory()
     async with factory() as session:
         repo = PipelineRepo(session)
@@ -98,7 +101,7 @@ async def income_calendar(days: int = 30) -> dict:
             {
                 "ticker": pos.ticker,
                 "expiration_date": pos.expiration_date.isoformat() if pos.expiration_date else None,
-                "strike": float(pos.strike) if pos.strike else None,
+                "strike": float(pos.strike) if pos.strike is not None else None,
                 "premium": float(pos.avg_entry_price),
             }
             for pos in calls

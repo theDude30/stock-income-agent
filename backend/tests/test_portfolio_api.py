@@ -76,6 +76,9 @@ async def test_portfolio_api(session, monkeypatch, pg_container):
         assert r.status_code == 200
         cal = r.json()
         assert "upcoming_dividends" in cal
+        assert "expiring_calls" in cal
+        assert isinstance(cal["upcoming_dividends"], list)
+        assert isinstance(cal["expiring_calls"], list)
 
         r = await client.get("/portfolio/performance")
         assert r.status_code == 200
