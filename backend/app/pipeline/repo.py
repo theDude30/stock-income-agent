@@ -10,6 +10,7 @@ from app.models.fundamentals import Fundamentals
 from app.models.news import NewsItem
 from app.models.options import OptionsChainRow as OptionsChainRowORM
 from app.models.pipeline import PipelineRun
+from app.models.portfolio import Feedback, IncomeEvent, Position, Trade
 from app.models.recommendation import Recommendation
 from app.models.safety import DividendSafetyScore
 from app.models.screening import Screening
@@ -449,3 +450,139 @@ class PipelineRepo:
                 llm_cost_usd=func.coalesce(PipelineRun.llm_cost_usd, 0) + Decimal(str(cost)),
             )
         )
+
+    # ----- positions -----
+
+    async def open_position(self, rec_id: int, ticker: str, kind: str, shares: Decimal,
+                            avg_entry_price: Decimal, strike: Decimal | None,
+                            expiration_date: date | None, now: datetime) -> int:
+        pos = Position(
+            recommendation_id=rec_id, ticker=ticker, kind=kind, shares=shares,
+            avg_entry_price=avg_entry_price, strike=strike, expiration_date=expiration_date,
+            opened_at=now, status="open",
+        )
+        self.session.add(pos)
+        await self.session.flush()
+        return pos.id
+
+    async def close_position(self, position_id: int, status: str, now: datetime) -> None:
+        pos = await self.session.get(Position, position_id)
+        if pos is not None:
+            pos.status = status
+            pos.closed_at = now
+            await self.session.flush()
+
+    async def list_open_positions(self, ticker: str | None = None,
+                                   kind: str | None = None) -> list[Position]:
+        stmt = select(Position).where(Position.status == "open")
+        if ticker is not None:
+            stmt = stmt.where(Position.ticker == ticker)
+        if kind is not None:
+            stmt = stmt.where(Position.kind == kind)
+        rows = await self.session.execute(stmt)
+        return list(rows.scalars().all())
+
+    async def get_position(self, position_id: int) -> Position | None:
+        return await self.session.get(Position, position_id)
+
+    # ----- trades -----
+
+    async def insert_trade(self, position_id: int, ticker: str, side: str,
+                           shares_or_contracts: Decimal, price: Decimal,
+                           reason: str, now: datetime) -> int:
+        trade = Trade(
+            position_id=position_id, ticker=ticker, side=side,
+            shares_or_contracts=shares_or_contracts, price=price,
+            reason=reason, executed_at=now,
+        )
+        self.session.add(trade)
+        await self.session.flush()
+        return trade.id
+
+    async def list_trades(self, from_: date | None = None, to: date | None = None) -> list[Trade]:
+        stmt = select(Trade).order_by(Trade.executed_at.desc())
+        if from_ is not None:
+            stmt = stmt.where(Trade.executed_at >= from_)
+        if to is not None:
+            stmt = stmt.where(Trade.executed_at <= to)
+        rows = await self.session.execute(stmt)
+        return list(rows.scalars().all())
+
+    # ----- income events -----
+
+    async def insert_income_event(self, ticker: str, type_: str, amount: Decimal,
+                                   event_date: date, source_position_id: int | None,
+                                   source_recommendation_id: int | None,
+                                   now: datetime) -> int | None:
+        stmt = pg_insert(IncomeEvent).values(
+            ticker=ticker, type=type_, amount=amount, event_date=event_date,
+            source_position_id=source_position_id,
+            source_recommendation_id=source_recommendation_id,
+            created_at=now,
+        ).on_conflict_do_nothing(constraint="uq_income_events_dedup").returning(IncomeEvent.id)
+        result = await self.session.execute(stmt)
+        row = result.scalar()
+        return row  # None if conflict
+
+    async def list_income_events(self, from_: date | None = None,
+                                  to: date | None = None) -> list[IncomeEvent]:
+        stmt = select(IncomeEvent).order_by(IncomeEvent.event_date.desc())
+        if from_ is not None:
+            stmt = stmt.where(IncomeEvent.event_date >= from_)
+        if to is not None:
+            stmt = stmt.where(IncomeEvent.event_date <= to)
+        rows = await self.session.execute(stmt)
+        return list(rows.scalars().all())
+
+    # ----- feedback -----
+
+    async def insert_feedback(self, rec_id: int, position_id: int, entry_price: Decimal,
+                               exit_price: Decimal | None, capital_pnl: Decimal,
+                               dividends_received: Decimal, premiums_collected: Decimal,
+                               total_return_pct: Decimal, held_days: int,
+                               outcome: str, exit_reason: str, now: datetime) -> int:
+        fb = Feedback(
+            recommendation_id=rec_id, position_id=position_id,
+            entry_price=entry_price, exit_price=exit_price, capital_pnl=capital_pnl,
+            dividends_received=dividends_received, premiums_collected=premiums_collected,
+            total_return_pct=total_return_pct, held_days=held_days,
+            outcome=outcome, exit_reason=exit_reason, created_at=now,
+        )
+        self.session.add(fb)
+        await self.session.flush()
+        return fb.id
+
+    # ----- executor helpers -----
+
+    async def approved_unexecuted_recs(self) -> list[Recommendation]:
+        rows = await self.session.execute(
+            select(Recommendation).where(Recommendation.status == "approved")
+        )
+        return list(rows.scalars().all())
+
+    async def mark_rec_executed(self, rec_id: int) -> None:
+        rec = await self.session.get(Recommendation, rec_id)
+        if rec is not None:
+            rec.status = "executed"
+            await self.session.flush()
+
+    # ----- income tracker helpers -----
+
+    async def open_calls_expiring_on(self, expiry_date: date) -> list[Position]:
+        rows = await self.session.execute(
+            select(Position).where(
+                Position.status == "open",
+                Position.kind == "short_call",
+                Position.expiration_date == expiry_date,
+            )
+        )
+        return list(rows.scalars().all())
+
+    async def dividends_since(self, ticker: str, since_date: date) -> list[DividendHistory]:
+        rows = await self.session.execute(
+            select(DividendHistory).where(
+                DividendHistory.ticker == ticker,
+                DividendHistory.ex_date > since_date,  # strict > : must own BEFORE ex-date
+            ).order_by(DividendHistory.ex_date)
+        )
+        return list(rows.scalars().all())
