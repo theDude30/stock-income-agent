@@ -500,11 +500,12 @@ class PipelineRepo:
         return trade.id
 
     async def list_trades(self, from_: date | None = None, to: date | None = None) -> list[Trade]:
+        from datetime import time
         stmt = select(Trade).order_by(Trade.executed_at.desc())
         if from_ is not None:
-            stmt = stmt.where(Trade.executed_at >= from_)
+            stmt = stmt.where(Trade.executed_at >= datetime.combine(from_, time.min, tzinfo=UTC))
         if to is not None:
-            stmt = stmt.where(Trade.executed_at <= to)
+            stmt = stmt.where(Trade.executed_at <= datetime.combine(to, time.max, tzinfo=UTC))
         rows = await self.session.execute(stmt)
         return list(rows.scalars().all())
 

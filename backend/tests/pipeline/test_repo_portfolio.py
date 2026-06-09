@@ -78,6 +78,13 @@ async def test_trade_insert_and_list(session):
 
     trades = await repo.list_trades()
     assert any(t.id == trade_id for t in trades)
+
+    # date-range filter
+    from datetime import date as dt_date
+    trades_today = await repo.list_trades(from_=dt_date(2026, 6, 9), to=dt_date(2026, 6, 9))
+    assert any(t.id == trade_id for t in trades_today)
+    trades_past = await repo.list_trades(to=dt_date(2026, 6, 8))
+    assert not any(t.id == trade_id for t in trades_past)
     await session.commit()
 
 
