@@ -86,6 +86,8 @@ async def test_executor_sell_covered_call(session):
     assert len(calls) == 1 and calls[0].strike == Decimal("155")
     events = await repo.list_income_events()
     assert any(e.ticker == "JNJ" and e.type == "call_premium" for e in events)
+    ko_event = next(e for e in events if e.ticker == "JNJ" and e.type == "call_premium")
+    assert ko_event.amount == Decimal("150")  # 1.50 premium * 100 shares per contract
 
 
 @pytest.mark.asyncio(loop_scope="session")
@@ -121,3 +123,10 @@ async def test_executor_sell_position(session):
     assert pos.status == "closed"
     rec = await repo.get_recommendation(sell_rec_id)
     assert rec.status == "executed"
+    from app.models.portfolio import Feedback
+    from sqlalchemy import select
+    fb_rows = (await session.execute(select(Feedback).where(Feedback.position_id == pos_id))).scalars().all()
+    assert len(fb_rows) == 1
+    fb = fb_rows[0]
+    assert fb.outcome in ("win", "loss", "breakeven")
+    assert fb.exit_reason == "recommendation"
