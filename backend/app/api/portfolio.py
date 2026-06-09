@@ -34,6 +34,7 @@ async def holdings() -> list[dict]:
                 }
             # get latest price date
             from sqlalchemy import select
+
             from app.models.stocks import Price
             price_row = (await session.execute(
                 select(Price.date).where(Price.ticker == pos.ticker)
@@ -55,7 +56,7 @@ async def holdings() -> list[dict]:
 
 @router.get("/income")
 async def income(
-    from_: date | None = Query(None, alias="from"),
+    from_: date | None = Query(None, alias="from"),  # noqa: B008
     to: date | None = None,
 ) -> list[dict]:
     factory = get_session_factory()
@@ -77,7 +78,7 @@ async def income_calendar(days: int = 30) -> dict:
     factory = get_session_factory()
     async with factory() as session:
         repo = PipelineRepo(session)
-        from datetime import datetime, UTC
+        from datetime import UTC, datetime
         today = datetime.now(UTC).date()
         cutoff = today + timedelta(days=days)
 
@@ -116,7 +117,7 @@ async def performance() -> dict:
     factory = get_session_factory()
     async with factory() as session:
         repo = PipelineRepo(session)
-        from datetime import datetime, UTC
+        from datetime import UTC, datetime
         today = datetime.now(UTC).date()
         ytd_start = date(today.year, 1, 1)
 

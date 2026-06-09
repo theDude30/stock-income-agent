@@ -184,9 +184,9 @@ async def test_open_calls_expiring_on(session):
 async def test_dividends_since_excludes_open_date(session):
     repo = PipelineRepo(session)
     await repo.upsert_stocks([StockMeta("O", "Realty", "RE", "B")], today=_today)
-    from app.models.stocks import DividendHistory as DH
-    session.add(DH(ticker="O", ex_date=_today, pay_date=None,
-                   amount_per_share=Decimal("0.257"), frequency="monthly"))
+    from app.models.stocks import DividendHistory
+    session.add(DividendHistory(ticker="O", ex_date=_today, pay_date=None,
+                                amount_per_share=Decimal("0.257"), frequency="monthly"))
     await session.flush()
 
     divs = await repo.dividends_since("O", _today)
@@ -263,26 +263,28 @@ async def test_list_trades_filtered_by_position(session):
 @pytest.mark.asyncio(loop_scope="session")
 async def test_list_income_events_filtered_by_position(session):
     repo = PipelineRepo(session)
-    await repo.upsert_stocks([StockMeta("CVX", "Chevron", "E", "B")], today=_today)
+    # Use XOM (not CVX) to avoid polluting the CVX open-position state used by
+    # test_income_tracker_itm_call_assignment which runs in the same session.
+    await repo.upsert_stocks([StockMeta("XOM", "ExxonMobil", "E", "B")], today=_today)
     run_id = await repo.start_run(now=_now)
     rec_id = await repo.insert_recommendation(
-        run_id=run_id, type="add_position", ticker="CVX", confidence="high",
+        run_id=run_id, type="add_position", ticker="XOM", confidence="high",
         payload={}, reasoning="r", signals_snapshot={}, model="m", prompt_version="v", now=_now)
     pos_id_x = await repo.open_position(
-        rec_id=rec_id, ticker="CVX", kind="stock",
+        rec_id=rec_id, ticker="XOM", kind="stock",
         shares=Decimal("10"), avg_entry_price=Decimal("160"),
         strike=None, expiration_date=None, now=_now)
     pos_id_y = await repo.open_position(
-        rec_id=rec_id, ticker="CVX", kind="stock",
+        rec_id=rec_id, ticker="XOM", kind="stock",
         shares=Decimal("5"), avg_entry_price=Decimal("161"),
         strike=None, expiration_date=None, now=_now)
 
     ev_x = await repo.insert_income_event(
-        ticker="CVX", type_="dividend", amount=Decimal("1.63"),
+        ticker="XOM", type_="dividend", amount=Decimal("1.63"),
         event_date=date(2026, 6, 2),
         source_position_id=pos_id_x, source_recommendation_id=None, now=_now)
     ev_y = await repo.insert_income_event(
-        ticker="CVX", type_="dividend", amount=Decimal("0.82"),
+        ticker="XOM", type_="dividend", amount=Decimal("0.82"),
         event_date=date(2026, 6, 3),
         source_position_id=pos_id_y, source_recommendation_id=None, now=_now)
 

@@ -6,7 +6,7 @@ from decimal import Decimal
 
 import pytest
 
-from app.models.stocks import DividendHistory as DH
+from app.models.stocks import DividendHistory
 from app.pipeline.repo import PipelineRepo
 from app.pipeline.steps.base import StepContext
 from app.pipeline.steps.income_tracker import IncomeTrackerStep
@@ -41,7 +41,7 @@ def _ctx(repo, run_id, now=None):
 async def test_income_tracker_books_dividend(session):
     repo = PipelineRepo(session)
     await repo.upsert_stocks([StockMeta("KO", "Coca-Cola", "S", "B")], today=_today)
-    session.add(DH(ticker="KO", ex_date=_ex_date, pay_date=None,
+    session.add(DividendHistory(ticker="KO", ex_date=_ex_date, pay_date=None,
                    amount_per_share=Decimal("0.485"), frequency="quarterly"))
     await session.flush()
     run_id = await repo.start_run(now=_now)
@@ -54,7 +54,7 @@ async def test_income_tracker_books_dividend(session):
         strike=None, expiration_date=None, now=_open_date)
     await session.commit()
 
-    result = await IncomeTrackerStep().run(_ctx(repo, run_id))
+    await IncomeTrackerStep().run(_ctx(repo, run_id))
     await session.commit()
 
     events = await repo.list_income_events()
@@ -96,7 +96,7 @@ async def test_income_tracker_otm_call_expiry(session):
         strike=None, expiration_date=None, now=_open_date)
     await session.commit()
 
-    result = await IncomeTrackerStep().run(_ctx(repo, run_id))
+    await IncomeTrackerStep().run(_ctx(repo, run_id))
     await session.commit()
 
     pos = await repo.get_position(pos_id)
@@ -104,8 +104,9 @@ async def test_income_tracker_otm_call_expiry(session):
     trades = await repo.list_trades()
     assert any(t.position_id == pos_id and t.side == "expire" for t in trades)
 
-    from app.models.portfolio import Feedback
     from sqlalchemy import select
+
+    from app.models.portfolio import Feedback
     fb_rows = (await session.execute(
         select(Feedback).where(Feedback.recommendation_id == rec_id)
     )).scalars().all()

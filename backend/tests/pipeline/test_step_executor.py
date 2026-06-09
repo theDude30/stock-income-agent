@@ -37,8 +37,8 @@ def _ctx(repo, run_id):
 async def test_executor_add_position(session):
     repo = PipelineRepo(session)
     await repo.upsert_stocks([StockMeta("KO", "Coca-Cola", "S", "B")], today=_today)
+
     from app.models.stocks import Price
-    from datetime import date
     session.add(Price(ticker="KO", date=_today, open=Decimal("60"), high=Decimal("61"),
                       low=Decimal("59"), close=Decimal("60.50"), adj_close=Decimal("60.50"), volume=1000000))
     await session.flush()
@@ -61,7 +61,7 @@ async def test_executor_add_position(session):
     assert rec.status == "executed"
 
     # idempotency: re-run does not open a second position
-    result2 = await ExecutorStep().run(_ctx(repo, run_id))
+    await ExecutorStep().run(_ctx(repo, run_id))
     await session.commit()
     assert len(await repo.list_open_positions(ticker="KO")) == 1
 
@@ -92,7 +92,6 @@ async def test_executor_sell_covered_call(session):
 
 @pytest.mark.asyncio(loop_scope="session")
 async def test_executor_sell_position(session):
-    from datetime import date
     repo = PipelineRepo(session)
     await repo.upsert_stocks([StockMeta("PG", "P&G", "S", "B")], today=_today)
     from app.models.stocks import Price
@@ -123,8 +122,9 @@ async def test_executor_sell_position(session):
     assert pos.status == "closed"
     rec = await repo.get_recommendation(sell_rec_id)
     assert rec.status == "executed"
-    from app.models.portfolio import Feedback
     from sqlalchemy import select
+
+    from app.models.portfolio import Feedback
     fb_rows = (await session.execute(select(Feedback).where(Feedback.position_id == pos_id))).scalars().all()
     assert len(fb_rows) == 1
     fb = fb_rows[0]

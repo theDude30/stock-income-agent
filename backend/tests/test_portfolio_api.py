@@ -6,8 +6,10 @@ from decimal import Decimal
 
 import pytest
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.main import create_app
+from app.models.stocks import Price
 from app.pipeline.repo import PipelineRepo
 from app.sources.base import StockMeta
 
@@ -38,9 +40,18 @@ async def test_portfolio_api(session, monkeypatch, pg_container):
 
     repo = PipelineRepo(session)
     await repo.upsert_stocks([StockMeta("KO", "Coca-Cola", "S", "B")], today=_today)
-    from app.models.stocks import DividendHistory, Price
-    session.add(Price(ticker="KO", date=_today, open=Decimal("61"), high=Decimal("62"),
-                      low=Decimal("60"), close=Decimal("61.50"), adj_close=Decimal("61.50"), volume=1000000))
+    from app.models.stocks import DividendHistory
+    # Upsert price to avoid duplicate-key error when executor tests have already
+    # inserted a KO price for the same date in the same shared session/DB.
+    await session.execute(
+        pg_insert(Price).values(
+            ticker="KO", date=_today, open=Decimal("61"), high=Decimal("62"),
+            low=Decimal("60"), close=Decimal("61.50"), adj_close=Decimal("61.50"), volume=1000000,
+        ).on_conflict_do_update(
+            index_elements=["ticker", "date"],
+            set_={"close": Decimal("61.50"), "adj_close": Decimal("61.50")},
+        )
+    )
     session.add(DividendHistory(ticker="KO", ex_date=date(2026, 6, 15), pay_date=None,
                                 amount_per_share=Decimal("0.485"), frequency="quarterly"))
     run_id = await repo.start_run(now=_now)

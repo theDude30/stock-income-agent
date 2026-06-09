@@ -203,18 +203,18 @@ All endpoints are prefixed `/` on the api container (port 8000); the React front
 | Method | Path | Status | Description |
 |---|---|---|---|
 | `GET` | `/portfolio/live` | planned | Current positions with mark-to-market P&L (2-min price cache) |
-| `GET` | `/portfolio/holdings` | planned | Open positions + yields + safety scores |
-| `GET` | `/portfolio/income?from=&to=` | planned | Income events in range |
-| `GET` | `/portfolio/income/calendar?days=30` | planned | Next-N-days projected income |
-| `GET` | `/portfolio/performance` | planned | YTD return vs. SPY total return vs. 1-mo Treasury |
+| `GET` | `/portfolio/holdings` | ✅ implemented | Open positions + yields + safety scores |
+| `GET` | `/portfolio/income?from=&to=` | ✅ implemented | Income events in range |
+| `GET` | `/portfolio/income/calendar?days=30` | ✅ implemented | Next-N-days projected income |
+| `GET` | `/portfolio/performance` | ✅ implemented | YTD return vs. SPY total return vs. 1-mo Treasury |
 
 ### Trades & history
 
 | Method | Path | Status | Description |
 |---|---|---|---|
-| `GET` | `/trades?from=&to=` | planned | Append-only ledger |
-| `GET` | `/positions?status=` | planned | Open and closed positions |
-| `GET` | `/positions/{id}` | planned | Position with full trade history + feedback |
+| `GET` | `/trades?from=&to=` | ✅ implemented | Append-only ledger |
+| `GET` | `/positions?status=` | ✅ implemented | Open and closed positions |
+| `GET` | `/positions/{id}` | ✅ implemented | Position with full trade history + feedback |
 
 ### Learning
 
@@ -288,7 +288,7 @@ Useful for fast iteration on the API. Uses a local uv-managed venv and a testcon
 cd backend
 uv venv                                # creates .venv/
 uv pip install -e ".[dev]"             # installs runtime + dev deps
-.venv/bin/pytest -m "not slow" -v      # 66 tests; add -m slow for live-API tests
+.venv/bin/pytest -m "not slow" -v      # 92 tests; add -m slow for live-API tests
 .venv/bin/ruff check .                 # lint
 ```
 
@@ -362,7 +362,7 @@ Makefile
 | **1. Foundation** | ✅ done | Containerized stack, FastAPI + Postgres + React skeleton, `/health` endpoint, Alembic infra, CI |
 | **2. Data ingestion** | ✅ done | yfinance prices/dividends/options + news RSS; daily pipeline shell |
 | **3. Analysis & recommendations** | ✅ done | DividendScreener, DividendSafetyAnalyst LLM, OptionsRecommender LLM, Recommender |
-| **4. Paper trading & income tracking** | planned | Executor, IncomeTracker, full dividend + covered-call simulation, feedback |
+| **4. Paper trading & income tracking** | ✅ done | Executor, IncomeTracker, full dividend + covered-call simulation, feedback |
 | **5. Dashboard & learning loop** | planned | All 5 React tabs wired, weekly Learner, alerts/notifier |
 | **Phase 2 (later)** | designed-in | Auto-approval per rec type, safety rails enforcement, kill switch |
 | **Phase 3 (later)** | out of scope | Real broker integration (Alpaca / IBKR), live trading |

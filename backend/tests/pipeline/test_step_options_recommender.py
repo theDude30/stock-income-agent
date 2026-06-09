@@ -43,6 +43,7 @@ async def test_options_recommender_dormant_when_no_options_data(session):
     assert result.ok_count == 0
     # No sell_covered_call recommendations should have been produced by THIS run
     from sqlalchemy import select
+
     from app.models.recommendation import Recommendation
     run_recs = (await session.execute(
         select(Recommendation).where(
