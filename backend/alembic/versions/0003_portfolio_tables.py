@@ -25,7 +25,7 @@ def upgrade() -> None:
         sa.Column("strike", sa.Numeric(), nullable=True),
         sa.Column("expiration_date", sa.Date(), nullable=True),
         sa.Column("opened_at", sa.DateTime(timezone=True), nullable=False),
-        sa.Column("status", sa.Text(), nullable=False, server_default="open"),
+        sa.Column("status", sa.Text(), nullable=False, server_default=sa.text("'open'")),
         sa.Column("closed_at", sa.DateTime(timezone=True), nullable=True),
         sa.CheckConstraint("kind IN ('stock', 'short_call')", name="ck_positions_kind"),
         sa.CheckConstraint("status IN ('open', 'closed', 'assigned', 'expired')", name="ck_positions_status"),
@@ -66,6 +66,7 @@ def upgrade() -> None:
         sa.UniqueConstraint(
             "ticker", "event_date", "type", "source_position_id",
             name="uq_income_events_dedup",
+            postgresql_nulls_not_distinct=True,
         ),
     )
     op.create_table(
@@ -76,8 +77,8 @@ def upgrade() -> None:
         sa.Column("entry_price", sa.Numeric(), nullable=False),
         sa.Column("exit_price", sa.Numeric(), nullable=True),
         sa.Column("capital_pnl", sa.Numeric(), nullable=False),
-        sa.Column("dividends_received", sa.Numeric(), nullable=False, server_default="0"),
-        sa.Column("premiums_collected", sa.Numeric(), nullable=False, server_default="0"),
+        sa.Column("dividends_received", sa.Numeric(), nullable=False, server_default=sa.text("0")),
+        sa.Column("premiums_collected", sa.Numeric(), nullable=False, server_default=sa.text("0")),
         sa.Column("total_return_pct", sa.Numeric(), nullable=False),
         sa.Column("held_days", sa.Integer(), nullable=False),
         sa.Column("outcome", sa.Text(), nullable=False),
