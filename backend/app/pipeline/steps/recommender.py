@@ -12,14 +12,14 @@ class RecommenderStep(Step):
     is_critical = False
 
     async def run(self, ctx: StepContext) -> StepResult:
-        held = set(await ctx.repo.held_tickers())  # empty until Sub-project 4
+        held = set(await ctx.repo.held_tickers())
         finalists = await ctx.repo.top_screened_tickers(ctx.run_id, limit=30)
         screenings = {s.ticker: s for s in await ctx.repo.get_screenings(ctx.run_id)}
 
         ok = 0
         for ticker in finalists:
             if ticker in held:
-                continue  # sell_position / sell_covered_call paths are dormant (Sub-project 4)
+                continue
             safety = await ctx.repo.latest_safety_score(ticker)
             if safety is None or safety.score < SAFETY_ADD_THRESHOLD:
                 continue

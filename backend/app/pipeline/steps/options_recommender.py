@@ -14,7 +14,7 @@ class OptionsRecommenderStep(Step):
     is_critical = False
 
     async def run(self, ctx: StepContext) -> StepResult:
-        holdings = await ctx.repo.held_tickers()  # [] until Sub-project 4
+        holdings = await ctx.repo.held_tickers()
         if not holdings:
             return StepResult(ok_count=0)
 
