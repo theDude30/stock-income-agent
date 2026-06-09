@@ -69,9 +69,13 @@ class PipelineRepo:
         return [r[0] for r in rows.all()]
 
     async def held_tickers(self) -> list[str]:
-        """No positions table until Sub-project 4. Returns [] so the options recommender
-        and sell_position logic stay dormant but wired."""
-        return []
+        rows = await self.session.execute(
+            select(Position.ticker).where(
+                Position.status == "open",
+                Position.kind == "stock",
+            ).distinct()
+        )
+        return [r[0] for r in rows.all()]
 
     # ----- prices -----
 

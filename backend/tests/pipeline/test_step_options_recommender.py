@@ -29,7 +29,7 @@ def _now():
 
 
 @pytest.mark.asyncio(loop_scope="session")
-async def test_options_recommender_dormant_when_no_holdings(session):
+async def test_options_recommender_dormant_when_no_options_data(session):
     repo = PipelineRepo(session)
     run_id = await repo.start_run(now=_now())
     await session.commit()
@@ -38,9 +38,19 @@ async def test_options_recommender_dormant_when_no_holdings(session):
     ctx = StepContext(repo=repo, sources=sources, run_id=run_id, now=_now, llm=llm)
 
     result = await _run_options_recommender(ctx)
+    # With no options data (sources.options is None), ok_count must be 0
+    # regardless of how many stock positions are held.
     assert result.ok_count == 0
-    recs = await repo.list_recommendations(status="pending", type_="sell_covered_call")
-    assert recs == []
+    # No sell_covered_call recommendations should have been produced by THIS run
+    from sqlalchemy import select
+    from app.models.recommendation import Recommendation
+    run_recs = (await session.execute(
+        select(Recommendation).where(
+            Recommendation.run_id == run_id,
+            Recommendation.type == "sell_covered_call",
+        )
+    )).scalars().all()
+    assert run_recs == []
 
 
 async def _run_options_recommender(ctx):

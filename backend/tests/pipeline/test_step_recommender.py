@@ -29,11 +29,12 @@ def _now():
 
 @pytest.mark.asyncio(loop_scope="session")
 async def test_recommender_emits_add_position_for_safe_unheld(session):
+    # Use a ticker not held in any open position by previous tests
     repo = PipelineRepo(session)
-    await repo.upsert_stocks([StockMeta("KO", "Coca-Cola", "S", "B")], today=_now().date())
+    await repo.upsert_stocks([StockMeta("MSFT", "Microsoft", "Tech", "Software")], today=_now().date())
     run_id = await repo.start_run(now=_now())
-    await repo.insert_screening(run_id, "KO", 85.0, {"ttm_yield": 0.03}, True, _now())
-    await repo.insert_safety_score("KO", 80, 0.5, 3.0, 0.4, 30, [], "solid",
+    await repo.insert_screening(run_id, "MSFT", 85.0, {"ttm_yield": 0.03}, True, _now())
+    await repo.insert_safety_score("MSFT", 80, 0.5, 3.0, 0.4, 30, [], "solid",
                                    "claude-sonnet-4-6", "safety-v1", _now())
     await session.commit()
 
@@ -44,4 +45,4 @@ async def test_recommender_emits_add_position_for_safe_unheld(session):
 
     assert result.ok_count >= 1
     recs = await repo.list_recommendations(status="pending", type_="add_position")
-    assert any(r.ticker == "KO" for r in recs)
+    assert any(r.ticker == "MSFT" for r in recs)

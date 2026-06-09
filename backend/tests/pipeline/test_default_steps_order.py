@@ -6,4 +6,5 @@ def test_default_steps_order():
     assert names == [
         "universe", "prices", "dividends", "fundamentals", "screener",
         "options", "news", "safety", "options_recommender", "recommender",
+        "executor", "income_tracker",
     ]
