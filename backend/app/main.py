@@ -10,6 +10,7 @@ from app.api.pipeline import router as pipeline_router
 from app.api.portfolio import router as portfolio_router
 from app.api.recommendations import router as recommendations_router
 from app.api.stocks import router as stocks_router
+from app.api.trades import router as trades_router
 from app.db import get_session_factory
 from app.pipeline.repo import PipelineRepo
 from app.pipeline.runner import run_pipeline
@@ -56,6 +57,7 @@ def create_app() -> FastAPI:
     app.include_router(recommendations_router)
     app.include_router(stocks_router)
     app.include_router(portfolio_router)
+    app.include_router(trades_router)
     return app
 
 
