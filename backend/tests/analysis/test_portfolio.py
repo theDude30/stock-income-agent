@@ -18,6 +18,7 @@ def test_compute_capital_pnl():
 def test_compute_covered_call_return_pct():
     # $150 premium / $5000 cost basis = 3%
     assert compute_covered_call_return_pct(Decimal("150"), Decimal("5000")) == Decimal("0.03")
+    assert compute_covered_call_return_pct(Decimal("150"), Decimal("0")) == Decimal("0")
 
 
 def test_compute_total_return_pct():
@@ -28,6 +29,7 @@ def test_compute_total_return_pct():
         cost_basis=Decimal("5000"),
     )
     assert pct == Decimal("0.13")  # 650 / 5000
+    assert compute_total_return_pct(Decimal("500"), Decimal("100"), Decimal("50"), Decimal("0")) == Decimal("0")
 
 
 def test_classify_outcome():
