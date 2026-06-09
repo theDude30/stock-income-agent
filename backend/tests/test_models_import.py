@@ -4,3 +4,4 @@ def test_new_models_registered():
 
     tables = set(Base.metadata.tables)
     assert {"fundamentals", "screenings", "dividend_safety_scores", "recommendations"} <= tables
+    assert {"positions", "trades", "income_events", "feedback"} <= tables  # add this line

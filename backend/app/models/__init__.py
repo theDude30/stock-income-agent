@@ -11,6 +11,7 @@ from app.models import (  # noqa: E402, F401
     news,
     options,
     pipeline,
+    portfolio,
     recommendation,
     safety,
     screening,
