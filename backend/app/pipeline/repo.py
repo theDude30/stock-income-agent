@@ -489,6 +489,13 @@ class PipelineRepo:
     async def get_position(self, position_id: int) -> Position | None:
         return await self.session.get(Position, position_id)
 
+    async def list_positions(self, status: str | None = None) -> list[Position]:
+        stmt = select(Position).order_by(Position.opened_at.desc())
+        if status is not None:
+            stmt = stmt.where(Position.status == status)
+        rows = await self.session.execute(stmt)
+        return list(rows.scalars().all())
+
     # ----- trades -----
 
     async def insert_trade(self, position_id: int, ticker: str, side: str,
@@ -503,9 +510,12 @@ class PipelineRepo:
         await self.session.flush()
         return trade.id
 
-    async def list_trades(self, from_: date | None = None, to: date | None = None) -> list[Trade]:
+    async def list_trades(self, from_: date | None = None, to: date | None = None,
+                          position_id: int | None = None) -> list[Trade]:
         from datetime import time
         stmt = select(Trade).order_by(Trade.executed_at.desc())
+        if position_id is not None:
+            stmt = stmt.where(Trade.position_id == position_id)
         if from_ is not None:
             stmt = stmt.where(Trade.executed_at >= datetime.combine(from_, time.min, tzinfo=UTC))
         if to is not None:
@@ -530,8 +540,11 @@ class PipelineRepo:
         return row  # None if conflict
 
     async def list_income_events(self, from_: date | None = None,
-                                  to: date | None = None) -> list[IncomeEvent]:
+                                  to: date | None = None,
+                                  position_id: int | None = None) -> list[IncomeEvent]:
         stmt = select(IncomeEvent).order_by(IncomeEvent.event_date.desc())
+        if position_id is not None:
+            stmt = stmt.where(IncomeEvent.source_position_id == position_id)
         if from_ is not None:
             stmt = stmt.where(IncomeEvent.event_date >= from_)
         if to is not None:

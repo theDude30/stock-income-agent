@@ -30,13 +30,7 @@ async def list_positions(status: str | None = None) -> list[dict]:
     factory = get_session_factory()
     async with factory() as session:
         repo = PipelineRepo(session)
-        from sqlalchemy import select
-        from app.models.portfolio import Position
-        stmt = select(Position)
-        if status is not None:
-            stmt = stmt.where(Position.status == status)
-        rows = await session.execute(stmt)
-        positions = list(rows.scalars().all())
+        positions = await repo.list_positions(status=status)
         return [_pos_summary(p) for p in positions]
 
 
@@ -48,7 +42,7 @@ async def get_position(position_id: int) -> dict:
         pos = await repo.get_position(position_id)
         if pos is None:
             raise HTTPException(status_code=404, detail="position not found")
-        trades = await repo.list_trades()
+        trades = await repo.list_trades(position_id=position_id)
         pos_trades = [
             {
                 "id": t.id, "side": t.side,
@@ -56,13 +50,13 @@ async def get_position(position_id: int) -> dict:
                 "price": float(t.price), "executed_at": t.executed_at.isoformat(),
                 "reason": t.reason,
             }
-            for t in trades if t.position_id == position_id
+            for t in trades
         ]
-        events = await repo.list_income_events()
+        events = await repo.list_income_events(position_id=position_id)
         pos_events = [
             {"id": e.id, "type": e.type, "amount": float(e.amount),
              "event_date": e.event_date.isoformat()}
-            for e in events if e.source_position_id == position_id
+            for e in events
         ]
         detail = _pos_summary(pos)
         detail["trades"] = pos_trades

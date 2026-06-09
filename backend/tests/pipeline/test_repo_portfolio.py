@@ -195,3 +195,104 @@ async def test_dividends_since_excludes_open_date(session):
     divs2 = await repo.dividends_since("O", date(2026, 6, 8))
     assert len(divs2) == 1
     await session.commit()
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_list_positions_with_status_filter(session):
+    repo = PipelineRepo(session)
+    await repo.upsert_stocks([StockMeta("ABBV", "AbbVie", "HC", "B")], today=_today)
+    run_id = await repo.start_run(now=_now)
+    rec_id = await repo.insert_recommendation(
+        run_id=run_id, type="add_position", ticker="ABBV", confidence="high",
+        payload={}, reasoning="r", signals_snapshot={}, model="m", prompt_version="v", now=_now)
+    pos_id = await repo.open_position(
+        rec_id=rec_id, ticker="ABBV", kind="stock",
+        shares=Decimal("10"), avg_entry_price=Decimal("170"),
+        strike=None, expiration_date=None, now=_now)
+
+    all_positions = await repo.list_positions()
+    assert any(p.id == pos_id for p in all_positions)
+
+    open_positions = await repo.list_positions(status="open")
+    assert any(p.id == pos_id for p in open_positions)
+    assert all(p.status == "open" for p in open_positions)
+
+    closed_positions = await repo.list_positions(status="closed")
+    assert not any(p.id == pos_id for p in closed_positions)
+    await session.commit()
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_list_trades_filtered_by_position(session):
+    repo = PipelineRepo(session)
+    await repo.upsert_stocks([StockMeta("WMT", "Walmart", "C", "B")], today=_today)
+    run_id = await repo.start_run(now=_now)
+    rec_id = await repo.insert_recommendation(
+        run_id=run_id, type="add_position", ticker="WMT", confidence="high",
+        payload={}, reasoning="r", signals_snapshot={}, model="m", prompt_version="v", now=_now)
+    pos_id_a = await repo.open_position(
+        rec_id=rec_id, ticker="WMT", kind="stock",
+        shares=Decimal("5"), avg_entry_price=Decimal("80"),
+        strike=None, expiration_date=None, now=_now)
+    pos_id_b = await repo.open_position(
+        rec_id=rec_id, ticker="WMT", kind="stock",
+        shares=Decimal("3"), avg_entry_price=Decimal("81"),
+        strike=None, expiration_date=None, now=_now)
+
+    trade_a = await repo.insert_trade(
+        position_id=pos_id_a, ticker="WMT", side="buy",
+        shares_or_contracts=Decimal("5"), price=Decimal("80"),
+        reason="recommendation", now=_now)
+    trade_b = await repo.insert_trade(
+        position_id=pos_id_b, ticker="WMT", side="buy",
+        shares_or_contracts=Decimal("3"), price=Decimal("81"),
+        reason="recommendation", now=_now)
+
+    trades_a = await repo.list_trades(position_id=pos_id_a)
+    assert all(t.position_id == pos_id_a for t in trades_a)
+    assert any(t.id == trade_a for t in trades_a)
+    assert not any(t.id == trade_b for t in trades_a)
+
+    trades_b = await repo.list_trades(position_id=pos_id_b)
+    assert all(t.position_id == pos_id_b for t in trades_b)
+    assert any(t.id == trade_b for t in trades_b)
+    assert not any(t.id == trade_a for t in trades_b)
+    await session.commit()
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_list_income_events_filtered_by_position(session):
+    repo = PipelineRepo(session)
+    await repo.upsert_stocks([StockMeta("CVX", "Chevron", "E", "B")], today=_today)
+    run_id = await repo.start_run(now=_now)
+    rec_id = await repo.insert_recommendation(
+        run_id=run_id, type="add_position", ticker="CVX", confidence="high",
+        payload={}, reasoning="r", signals_snapshot={}, model="m", prompt_version="v", now=_now)
+    pos_id_x = await repo.open_position(
+        rec_id=rec_id, ticker="CVX", kind="stock",
+        shares=Decimal("10"), avg_entry_price=Decimal("160"),
+        strike=None, expiration_date=None, now=_now)
+    pos_id_y = await repo.open_position(
+        rec_id=rec_id, ticker="CVX", kind="stock",
+        shares=Decimal("5"), avg_entry_price=Decimal("161"),
+        strike=None, expiration_date=None, now=_now)
+
+    ev_x = await repo.insert_income_event(
+        ticker="CVX", type_="dividend", amount=Decimal("1.63"),
+        event_date=date(2026, 6, 2),
+        source_position_id=pos_id_x, source_recommendation_id=None, now=_now)
+    ev_y = await repo.insert_income_event(
+        ticker="CVX", type_="dividend", amount=Decimal("0.82"),
+        event_date=date(2026, 6, 3),
+        source_position_id=pos_id_y, source_recommendation_id=None, now=_now)
+
+    events_x = await repo.list_income_events(position_id=pos_id_x)
+    assert all(e.source_position_id == pos_id_x for e in events_x)
+    assert any(e.id == ev_x for e in events_x)
+    assert not any(e.id == ev_y for e in events_x)
+
+    events_y = await repo.list_income_events(position_id=pos_id_y)
+    assert all(e.source_position_id == pos_id_y for e in events_y)
+    assert any(e.id == ev_y for e in events_y)
+    assert not any(e.id == ev_x for e in events_y)
+    await session.commit()
