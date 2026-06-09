@@ -104,6 +104,16 @@ async def test_income_tracker_otm_call_expiry(session):
     trades = await repo.list_trades()
     assert any(t.position_id == pos_id and t.side == "expire" for t in trades)
 
+    from app.models.portfolio import Feedback
+    from sqlalchemy import select
+    fb_rows = (await session.execute(
+        select(Feedback).where(Feedback.recommendation_id == rec_id)
+    )).scalars().all()
+    assert len(fb_rows) == 1
+    assert fb_rows[0].outcome == "win"
+    assert fb_rows[0].exit_reason == "expiration"
+    assert fb_rows[0].premiums_collected > 0
+
 
 @pytest.mark.asyncio(loop_scope="session")
 async def test_income_tracker_itm_call_assignment(session):

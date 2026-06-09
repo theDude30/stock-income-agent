@@ -87,6 +87,11 @@ class IncomeTrackerStep(Step):
             cost_basis = sp.avg_entry_price * sp.shares
             total_return_pct = compute_covered_call_return_pct(premium_total, cost_basis)
         else:
+            logger.warning(
+                "income_tracker: OTM expiry for %s (position %d) has no open stock position — "
+                "feedback will show total_return_pct=0",
+                pos.ticker, pos.id,
+            )
             total_return_pct = Decimal("0")
 
         await ctx.repo.insert_feedback(
@@ -137,4 +142,10 @@ class IncomeTrackerStep(Step):
                 total_return_pct=total_return_pct,
                 held_days=(today - sp.opened_at.date()).days,
                 outcome=outcome, exit_reason="assignment", now=ctx.now(),
+            )
+        else:
+            logger.warning(
+                "income_tracker: ITM assignment for %s (call pos %d) has no open stock position — "
+                "no feedback written",
+                pos.ticker, pos.id,
             )
