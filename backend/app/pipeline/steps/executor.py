@@ -61,6 +61,8 @@ class ExecutorStep(Step):
 
     async def _execute_sell_call(self, ctx: StepContext, rec, today: date) -> None:
         payload = rec.payload or {}
+        if "strike" not in payload or "expiration_date" not in payload:
+            raise ValueError(f"sell_covered_call rec {rec.id} missing strike/expiration_date")
         premium = Decimal(str(payload.get("expected_premium", "0")))
         strike = Decimal(str(payload["strike"]))
         expiration = date.fromisoformat(str(payload["expiration_date"]))

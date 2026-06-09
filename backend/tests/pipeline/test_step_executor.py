@@ -86,8 +86,8 @@ async def test_executor_sell_covered_call(session):
     assert len(calls) == 1 and calls[0].strike == Decimal("155")
     events = await repo.list_income_events()
     assert any(e.ticker == "JNJ" and e.type == "call_premium" for e in events)
-    ko_event = next(e for e in events if e.ticker == "JNJ" and e.type == "call_premium")
-    assert ko_event.amount == Decimal("150")  # 1.50 premium * 100 shares per contract
+    jnj_event = next(e for e in events if e.ticker == "JNJ" and e.type == "call_premium")
+    assert jnj_event.amount == Decimal("150")  # 1.50 premium * 100 shares per contract
 
 
 @pytest.mark.asyncio(loop_scope="session")
