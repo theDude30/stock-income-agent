@@ -8,6 +8,7 @@ class Base(DeclarativeBase):
 # Import side-effect: register models with Base.metadata
 from app.models import (  # noqa: E402, F401
     fundamentals,
+    learning,
     news,
     options,
     pipeline,
