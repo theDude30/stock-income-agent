@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
 from app.llm.base import LLMClient
+from app.notify.email import EmailSender
 from app.pipeline.repo import PipelineRepo
 from app.sources.base import Sources
 
@@ -31,6 +32,7 @@ class StepContext:
     run_id: int
     now: Callable[[], datetime] = field(default=_utc_now)
     llm: LLMClient | None = None
+    email: EmailSender | None = None
 
 
 class Step(ABC):

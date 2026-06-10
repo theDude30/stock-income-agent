@@ -21,12 +21,24 @@ class Settings(BaseSettings):
     anthropic_api_key: str = Field(default="")
     llm_model: str = Field(default="claude-sonnet-4-6")
 
+    notifications_enabled: bool = Field(default=False)
+    smtp_host: str = Field(default="")
+    smtp_port: int = Field(default=587)
+    smtp_user: str = Field(default="")
+    smtp_password: str = Field(default="")
+    smtp_from: str = Field(default="")
+    notify_email_to: str = Field(default="")
+
     @property
     def postgres_url(self) -> str:
         return (
             f"postgresql+asyncpg://{self.postgres_user}:{self.postgres_password}"
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
         )
+
+    @property
+    def smtp_configured(self) -> bool:
+        return bool(self.smtp_host and self.notify_email_to)
 
 
 def get_settings() -> Settings:
