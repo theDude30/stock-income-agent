@@ -1,5 +1,5 @@
 from collections.abc import Iterable
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
 from sqlalchemy import func, select, text, update
@@ -7,6 +7,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.fundamentals import Fundamentals
+from app.models.learning import AgentLesson, Alert
 from app.models.news import NewsItem
 from app.models.options import OptionsChainRow as OptionsChainRowORM
 from app.models.pipeline import PipelineRun
@@ -604,3 +605,157 @@ class PipelineRepo:
             ).order_by(DividendHistory.ex_date)
         )
         return list(rows.scalars().all())
+
+    # ----- lessons -----
+
+    async def insert_lesson(self, pattern: str, evidence_recommendation_ids: list[int],
+                            sample_size: int, now: datetime) -> int:
+        lesson = AgentLesson(
+            pattern=pattern, evidence_recommendation_ids=evidence_recommendation_ids,
+            sample_size=sample_size, effective_from=now, effective_until=None,
+            user_ignored=False, created_at=now,
+        )
+        self.session.add(lesson)
+        await self.session.flush()
+        return lesson.id
+
+    async def active_lessons(self) -> list[str]:
+        rows = await self.session.execute(
+            select(AgentLesson.pattern).where(
+                AgentLesson.effective_until.is_(None),
+                AgentLesson.user_ignored.is_(False),
+            ).order_by(AgentLesson.effective_from)
+        )
+        return [r[0] for r in rows.all()]
+
+    async def list_lessons(self, active: bool = True) -> list[AgentLesson]:
+        stmt = select(AgentLesson).order_by(AgentLesson.created_at.desc())
+        if active:
+            stmt = stmt.where(
+                AgentLesson.effective_until.is_(None),
+                AgentLesson.user_ignored.is_(False),
+            )
+        rows = await self.session.execute(stmt)
+        return list(rows.scalars().all())
+
+    async def get_lesson(self, lesson_id: int) -> AgentLesson | None:
+        return await self.session.get(AgentLesson, lesson_id)
+
+    async def retire_lesson(self, lesson_id: int, reason: str, now: datetime) -> None:
+        lesson = await self.session.get(AgentLesson, lesson_id)
+        if lesson is not None and lesson.effective_until is None:
+            lesson.effective_until = now
+            lesson.retired_reason = reason
+            await self.session.flush()
+
+    async def set_lesson_ignored(self, lesson_id: int, ignored: bool) -> AgentLesson | None:
+        lesson = await self.session.get(AgentLesson, lesson_id)
+        if lesson is None:
+            return None
+        lesson.user_ignored = ignored
+        await self.session.flush()
+        return lesson
+
+    # ----- alerts -----
+
+    async def insert_alert(self, run_id: int, type_: str, payload: dict, channel: str,
+                           sent_at: datetime | None, now: datetime) -> int:
+        alert = Alert(run_id=run_id, type=type_, payload=payload, channel=channel,
+                      sent_at=sent_at, created_at=now)
+        self.session.add(alert)
+        await self.session.flush()
+        return alert.id
+
+    async def delete_alerts_for_run(self, run_id: int) -> None:
+        await self.session.execute(
+            Alert.__table__.delete().where(Alert.run_id == run_id))
+
+    async def list_alerts(self, run_id: int | None = None, limit: int = 50) -> list[Alert]:
+        stmt = select(Alert).order_by(Alert.created_at.desc()).limit(limit)
+        if run_id is not None:
+            stmt = select(Alert).where(Alert.run_id == run_id).order_by(Alert.created_at.desc())
+        rows = await self.session.execute(stmt)
+        return list(rows.scalars().all())
+
+    # ----- learner / notifier evidence -----
+
+    async def feedback_since(self, since: date) -> list[Feedback]:
+        from datetime import time
+        rows = await self.session.execute(
+            select(Feedback).where(
+                Feedback.created_at >= datetime.combine(since, time.min, tzinfo=UTC)
+            ).order_by(Feedback.created_at.desc())
+        )
+        return list(rows.scalars().all())
+
+    async def list_feedback(self, from_: date | None = None,
+                            to: date | None = None) -> list[Feedback]:
+        from datetime import time
+        stmt = select(Feedback).order_by(Feedback.created_at.desc())
+        if from_ is not None:
+            stmt = stmt.where(Feedback.created_at >= datetime.combine(from_, time.min, tzinfo=UTC))
+        if to is not None:
+            stmt = stmt.where(Feedback.created_at <= datetime.combine(to, time.max, tzinfo=UTC))
+        rows = await self.session.execute(stmt)
+        return list(rows.scalars().all())
+
+    async def rejected_recs_since(self, since: date) -> list[Recommendation]:
+        from datetime import time
+        rows = await self.session.execute(
+            select(Recommendation).where(
+                Recommendation.status == "rejected",
+                Recommendation.decided_at >= datetime.combine(since, time.min, tzinfo=UTC),
+            )
+        )
+        return list(rows.scalars().all())
+
+    async def pending_recs_for_run(self, run_id: int) -> list[Recommendation]:
+        rows = await self.session.execute(
+            select(Recommendation).where(
+                Recommendation.run_id == run_id,
+                Recommendation.status == "pending",
+            )
+        )
+        return list(rows.scalars().all())
+
+    async def safety_score_delta(self, ticker: str) -> tuple[int, int] | None:
+        rows = await self.session.execute(
+            select(DividendSafetyScore.score).where(DividendSafetyScore.ticker == ticker)
+            .order_by(DividendSafetyScore.scored_at.desc()).limit(2)
+        )
+        scores = [r[0] for r in rows.all()]
+        if len(scores) < 2:
+            return None
+        return (scores[0], scores[1])  # (latest, previous)
+
+    async def calls_expiring_within(self, days: int, today: date) -> list[Position]:
+        end = today + timedelta(days=days)
+        rows = await self.session.execute(
+            select(Position).where(
+                Position.status == "open",
+                Position.kind == "short_call",
+                Position.expiration_date >= today,
+                Position.expiration_date <= end,
+            )
+        )
+        return list(rows.scalars().all())
+
+    async def dividends_between(self, ticker: str, start: date, end: date) -> list[DividendHistory]:
+        rows = await self.session.execute(
+            select(DividendHistory).where(
+                DividendHistory.ticker == ticker,
+                DividendHistory.ex_date >= start,
+                DividendHistory.ex_date <= end,
+            ).order_by(DividendHistory.ex_date)
+        )
+        return list(rows.scalars().all())
+
+    async def llm_cost_month_to_date(self, today: date) -> Decimal:
+        first = today.replace(day=1)
+        from datetime import time
+        row = await self.session.execute(
+            select(func.coalesce(func.sum(PipelineRun.llm_cost_usd), 0)).where(
+                PipelineRun.started_at >= datetime.combine(first, time.min, tzinfo=UTC)
+            )
+        )
+        return Decimal(str(row.scalar() or 0))
