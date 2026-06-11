@@ -1,6 +1,7 @@
 from app.pipeline.steps import default_steps
 from app.pipeline.steps.executor import ExecutorStep
 from app.pipeline.steps.income_tracker import IncomeTrackerStep
+from app.pipeline.steps.notifier import NotifierStep
 
 
 def test_default_steps_include_executor_and_income_tracker():
@@ -12,6 +13,7 @@ def test_default_steps_include_executor_and_income_tracker():
     assert names.index("executor") > names.index("recommender")
     # income_tracker comes after executor
     assert names.index("income_tracker") > names.index("executor")
-    # last two steps are executor, income_tracker
-    assert isinstance(steps[-2], ExecutorStep)
-    assert isinstance(steps[-1], IncomeTrackerStep)
+    # last three steps are executor, income_tracker, notifier
+    assert isinstance(steps[-3], ExecutorStep)
+    assert isinstance(steps[-2], IncomeTrackerStep)
+    assert isinstance(steps[-1], NotifierStep)

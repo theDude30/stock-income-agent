@@ -4,6 +4,7 @@ from app.pipeline.steps.executor import ExecutorStep
 from app.pipeline.steps.fundamentals import FundamentalsStep
 from app.pipeline.steps.income_tracker import IncomeTrackerStep
 from app.pipeline.steps.news import NewsStep
+from app.pipeline.steps.notifier import NotifierStep
 from app.pipeline.steps.options import OptionsStep
 from app.pipeline.steps.options_recommender import OptionsRecommenderStep
 from app.pipeline.steps.prices import PricesStep
@@ -27,6 +28,7 @@ def default_steps() -> list[Step]:
         RecommenderStep(),
         ExecutorStep(),
         IncomeTrackerStep(),
+        NotifierStep(),
     ]
 
 
@@ -36,6 +38,7 @@ __all__ = [
     "FundamentalsStep",
     "IncomeTrackerStep",
     "NewsStep",
+    "NotifierStep",
     "OptionsRecommenderStep",
     "OptionsStep",
     "PricesStep",

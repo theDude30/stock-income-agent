@@ -104,7 +104,9 @@ async def _run_in_background(run_id: int, step_names: list[str]) -> None:
     factory = get_session_factory()
     async with factory() as session:
         repo = PipelineRepo(session)
-        ctx = StepContext(repo=repo, sources=_make_sources(), run_id=run_id, llm=_make_llm())
+        from app.notify.email import make_email_sender
+        ctx = StepContext(repo=repo, sources=_make_sources(), run_id=run_id,
+                          llm=_make_llm(), email=make_email_sender(get_settings()))
         try:
             await run_pipeline(ctx, steps=steps, existing_run_id=run_id)
             await session.commit()
