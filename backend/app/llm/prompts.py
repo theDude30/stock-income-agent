@@ -44,3 +44,30 @@ def build_options_prompt(*, ticker: str, price: float, candidates: list[dict]) -
         f"Candidate calls (pre-scored):\n{json.dumps(candidates, indent=2, default=str)}\n\n"
         "Pick the best one and explain why."
     )
+
+
+LEARNER_PROMPT_VERSION = "learner-v1"
+
+LEARNER_SYSTEM = (
+    "You are a portfolio post-mortem analyst for a dividend + covered-call income agent. "
+    "Review the past week's closed-position outcomes, income, dividend-safety changes, and "
+    "user-rejected recommendations. Propose only falsifiable, evidence-backed lessons with a "
+    "sample size of at least 5 closed positions. Flag any proposal that contradicts an active "
+    "lesson by setting contradicts_lesson_id. Propose retirements for active lessons the "
+    "evidence no longer supports. Do not propose vague advice like 'diversify' or 'be careful'."
+)
+
+
+def build_learner_prompt(*, active_lessons: list[str], feedback: list[dict],
+                         income_events: list[dict], safety_deltas: list[dict],
+                         rejections: list[dict]) -> str:
+    lessons_block = "\n".join(f"- {x}" for x in active_lessons) or "(none yet)"
+    return (
+        f"Active lessons (propose retirements by id if unsupported):\n{lessons_block}\n\n"
+        f"Closed-position feedback:\n{json.dumps(feedback, indent=2, default=str)}\n\n"
+        f"Income events:\n{json.dumps(income_events, indent=2, default=str)}\n\n"
+        f"Dividend-safety score changes:\n{json.dumps(safety_deltas, indent=2, default=str)}\n\n"
+        f"User-rejected recommendations:\n{json.dumps(rejections, indent=2, default=str)}\n\n"
+        "Propose new_lessons (each with pattern, sample_size, evidence_recommendation_ids, "
+        "optional contradicts_lesson_id) and retirements (lesson_id + reason)."
+    )

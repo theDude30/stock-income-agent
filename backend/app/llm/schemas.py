@@ -17,3 +17,20 @@ class CallPick(BaseModel):
     expected_premium: float
     prob_assignment: float
     reasoning: str
+
+
+class ProposedLesson(BaseModel):
+    pattern: str
+    sample_size: int
+    evidence_recommendation_ids: list[int]
+    contradicts_lesson_id: int | None = None
+
+
+class LessonRetirement(BaseModel):
+    lesson_id: int
+    reason: str
+
+
+class LearnerOutput(BaseModel):
+    new_lessons: list[ProposedLesson]
+    retirements: list[LessonRetirement]
