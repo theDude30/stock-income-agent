@@ -166,7 +166,7 @@ Key principles:
 
 All endpoints are prefixed `/` on the api container (port 8000); the React frontend reaches them via `/api/*` (nginx proxy in prod, Vite proxy in dev).
 
-> **Status:** Health, pipeline, recommendations, and a subset of stocks endpoints are implemented (Sub-projects 1–3). Portfolio, trades, learning, and settings endpoints land in Sub-projects 4–5 per the plan.
+> **Status:** Health, pipeline, recommendations, and a subset of stocks endpoints are implemented (Sub-projects 1–3). Portfolio and trades endpoints landed in Sub-project 4; learning (`/lessons`, `/feedback`), `/settings` (read), and notifier-related alerts landed in Sub-project 5a. Remaining `planned` rows (stocks list/detail/prices/dividends/news, `/portfolio/live`, `PATCH /settings`, `/settings/kill-switch`) are not yet built.
 
 ### Health & ops
 
@@ -220,15 +220,15 @@ All endpoints are prefixed `/` on the api container (port 8000); the React front
 
 | Method | Path | Status | Description |
 |---|---|---|---|
-| `GET` | `/lessons?active=true` | planned | Current `agent_lessons` injected into prompts |
-| `POST` | `/lessons/{id}/ignore` | planned | User toggles a lesson off |
-| `GET` | `/feedback?from=&to=` | planned | Closed-position post-mortems |
+| `GET` | `/lessons?active=true` | ✅ implemented | Current `agent_lessons` injected into prompts |
+| `POST` | `/lessons/{id}/ignore` | ✅ implemented | User toggles a lesson off |
+| `GET` | `/feedback?from=&to=` | ✅ implemented | Closed-position post-mortems |
 
 ### Settings
 
 | Method | Path | Status | Description |
 |---|---|---|---|
-| `GET` | `/settings` | planned | Current config (approval modes, safety rails, notification prefs) |
+| `GET` | `/settings` | ✅ implemented | Current config (approval modes, safety rails, notification prefs) |
 | `PATCH` | `/settings` | planned | Update config (e.g., flip `auto_approve.sell_covered_call`) |
 | `POST` | `/settings/kill-switch` | planned | Immediately revert all auto-approval to manual |
 
@@ -288,7 +288,7 @@ Useful for fast iteration on the API. Uses a local uv-managed venv and a testcon
 cd backend
 uv venv                                # creates .venv/
 uv pip install -e ".[dev]"             # installs runtime + dev deps
-.venv/bin/pytest -m "not slow" -v      # 92 tests; add -m slow for live-API tests
+.venv/bin/pytest -m "not slow" -v      # 124 tests; add -m slow for live-API tests
 .venv/bin/ruff check .                 # lint
 ```
 
@@ -363,7 +363,7 @@ Makefile
 | **2. Data ingestion** | ✅ done | yfinance prices/dividends/options + news RSS; daily pipeline shell |
 | **3. Analysis & recommendations** | ✅ done | DividendScreener, DividendSafetyAnalyst LLM, OptionsRecommender LLM, Recommender |
 | **4. Paper trading & income tracking** | ✅ done | Executor, IncomeTracker, full dividend + covered-call simulation, feedback |
-| **5. Dashboard & learning loop** | planned | All 5 React tabs wired, weekly Learner, alerts/notifier |
+| **5. Dashboard & learning loop** | 5a done / 5b planned | Backend (5a): weekly Learner, alerts/notifier (email digest), learning + settings APIs — done. Frontend (5b): all 5 React tabs wired — planned |
 | **Phase 2 (later)** | designed-in | Auto-approval per rec type, safety rails enforcement, kill switch |
 | **Phase 3 (later)** | out of scope | Real broker integration (Alpaca / IBKR), live trading |
 
