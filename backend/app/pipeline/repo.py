@@ -78,6 +78,9 @@ class PipelineRepo:
         )
         return [r[0] for r in rows.all()]
 
+    async def get_stock(self, ticker: str) -> Stock | None:
+        return await self.session.get(Stock, ticker)
+
     # ----- prices -----
 
     async def upsert_prices(self, ticker: str, bars: Iterable[PriceBar]) -> int:
@@ -117,6 +120,16 @@ class PipelineRepo:
         )
         return row.scalar()
 
+    async def prices_between(self, ticker: str, from_: date | None = None,
+                             to: date | None = None) -> list[Price]:
+        stmt = select(Price).where(Price.ticker == ticker).order_by(Price.date)
+        if from_ is not None:
+            stmt = stmt.where(Price.date >= from_)
+        if to is not None:
+            stmt = stmt.where(Price.date <= to)
+        rows = await self.session.execute(stmt)
+        return list(rows.scalars().all())
+
     # ----- dividends -----
 
     async def upsert_dividends(self, ticker: str, events: Iterable[DividendEvent]) -> int:
@@ -147,6 +160,13 @@ class PipelineRepo:
             select(func.max(DividendHistory.ex_date)).where(DividendHistory.ticker == ticker)
         )
         return row.scalar()
+
+    async def list_dividend_history(self, ticker: str) -> list[DividendHistory]:
+        rows = await self.session.execute(
+            select(DividendHistory).where(DividendHistory.ticker == ticker)
+            .order_by(DividendHistory.ex_date.desc())
+        )
+        return list(rows.scalars().all())
 
     # ----- options (insert-only, daily snapshot) -----
 
@@ -197,6 +217,13 @@ class PipelineRepo:
         stmt = pg_insert(NewsItem).values(values).on_conflict_do_nothing(index_elements=[NewsItem.url])
         result = await self.session.execute(stmt)
         return result.rowcount or 0
+
+    async def list_news(self, ticker: str, limit: int = 20) -> list[NewsItem]:
+        rows = await self.session.execute(
+            select(NewsItem).where(NewsItem.ticker == ticker)
+            .order_by(NewsItem.published_at.desc()).limit(limit)
+        )
+        return list(rows.scalars().all())
 
     # ----- yields (for options watchlist; T12M dividend / latest close) -----
 
@@ -380,6 +407,13 @@ class PipelineRepo:
         row = await self.session.execute(select(func.max(Screening.run_id)))
         return row.scalar()
 
+    async def latest_screening(self, ticker: str) -> Screening | None:
+        row = await self.session.execute(
+            select(Screening).where(Screening.ticker == ticker)
+            .order_by(Screening.created_at.desc()).limit(1)
+        )
+        return row.scalar_one_or_none()
+
     # ----- safety scores -----
 
     async def insert_safety_score(self, ticker, score, payout_ratio, fcf_coverage,
@@ -403,6 +437,13 @@ class PipelineRepo:
             .order_by(DividendSafetyScore.scored_at.desc()).limit(1)
         )
         return row.scalar_one_or_none()
+
+    async def safety_score_history(self, ticker: str, limit: int = 20) -> list[DividendSafetyScore]:
+        rows = await self.session.execute(
+            select(DividendSafetyScore).where(DividendSafetyScore.ticker == ticker)
+            .order_by(DividendSafetyScore.scored_at.desc()).limit(limit)
+        )
+        return list(rows.scalars().all())
 
     # ----- recommendations -----
 
