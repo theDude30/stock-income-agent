@@ -18,6 +18,8 @@ class SafetyStep(Step):
         if not finalists:
             return StepResult(ok_count=0)
 
+        active = await ctx.repo.active_lessons()
+
         failures: dict[str, str] = {}
         ok = 0
         for ticker in finalists:
@@ -27,7 +29,7 @@ class SafetyStep(Step):
                 signals = screening.signals if screening else {}
                 prompt = build_safety_prompt(
                     ticker=ticker, metrics=signals, recent_dividends=[], recent_news=[],
-                    active_lessons=[],  # empty until Sub-project 5
+                    active_lessons=active,
                 )
                 assessment, usage = await asyncio.to_thread(
                     ctx.llm.complete_structured,

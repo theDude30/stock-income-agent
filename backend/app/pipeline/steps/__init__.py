@@ -3,6 +3,7 @@ from app.pipeline.steps.dividends import DividendsStep
 from app.pipeline.steps.executor import ExecutorStep
 from app.pipeline.steps.fundamentals import FundamentalsStep
 from app.pipeline.steps.income_tracker import IncomeTrackerStep
+from app.pipeline.steps.learner import LearnerStep
 from app.pipeline.steps.news import NewsStep
 from app.pipeline.steps.notifier import NotifierStep
 from app.pipeline.steps.options import OptionsStep
@@ -37,6 +38,7 @@ __all__ = [
     "ExecutorStep",
     "FundamentalsStep",
     "IncomeTrackerStep",
+    "LearnerStep",
     "NewsStep",
     "NotifierStep",
     "OptionsRecommenderStep",
