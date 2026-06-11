@@ -4,11 +4,14 @@ from datetime import UTC, datetime
 
 from fastapi import FastAPI
 
+from app.api.feedback import router as feedback_router
 from app.api.health import router as health_router
+from app.api.lessons import router as lessons_router
 from app.api.pipeline import _make_llm, _make_sources
 from app.api.pipeline import router as pipeline_router
 from app.api.portfolio import router as portfolio_router
 from app.api.recommendations import router as recommendations_router
+from app.api.settings import router as settings_router
 from app.api.stocks import router as stocks_router
 from app.api.trades import router as trades_router
 from app.config import get_settings
@@ -73,9 +76,12 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     app = FastAPI(title="Stock Income Agent", version="0.1.0", lifespan=lifespan)
+    app.include_router(feedback_router)
     app.include_router(health_router)
+    app.include_router(lessons_router)
     app.include_router(pipeline_router)
     app.include_router(recommendations_router)
+    app.include_router(settings_router)
     app.include_router(stocks_router)
     app.include_router(portfolio_router)
     app.include_router(trades_router)
