@@ -11,12 +11,15 @@ from app.api.portfolio import router as portfolio_router
 from app.api.recommendations import router as recommendations_router
 from app.api.stocks import router as stocks_router
 from app.api.trades import router as trades_router
+from app.config import get_settings
 from app.db import get_session_factory
+from app.notify.email import make_email_sender
 from app.pipeline.repo import PipelineRepo
 from app.pipeline.runner import run_pipeline
 from app.pipeline.scheduler import PipelineScheduler
 from app.pipeline.steps import default_steps
 from app.pipeline.steps.base import StepContext
+from app.pipeline.steps.learner import LearnerStep
 
 logger = logging.getLogger(__name__)
 
@@ -26,11 +29,9 @@ async def _scheduled_pipeline_job() -> None:
     async with factory() as session:
         repo = PipelineRepo(session)
         ctx = StepContext(
-            repo=repo,
-            sources=_make_sources(),
-            run_id=0,
-            now=lambda: datetime.now(tz=UTC),
-            llm=_make_llm(),
+            repo=repo, sources=_make_sources(), run_id=0,
+            now=lambda: datetime.now(tz=UTC), llm=_make_llm(),
+            email=make_email_sender(get_settings()),
         )
         try:
             await run_pipeline(ctx, steps=default_steps())
@@ -40,9 +41,29 @@ async def _scheduled_pipeline_job() -> None:
             await session.rollback()
 
 
+async def _scheduled_learner_job() -> None:
+    factory = get_session_factory()
+    async with factory() as session:
+        repo = PipelineRepo(session)
+        ctx = StepContext(
+            repo=repo, sources=_make_sources(), run_id=0,
+            now=lambda: datetime.now(tz=UTC), llm=_make_llm(),
+            email=make_email_sender(get_settings()),
+        )
+        try:
+            await run_pipeline(ctx, steps=[LearnerStep()])
+            await session.commit()
+        except Exception:
+            logger.exception("scheduled learner failed")
+            await session.rollback()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    scheduler = PipelineScheduler(job_callable=_scheduled_pipeline_job)
+    scheduler = PipelineScheduler(
+        job_callable=_scheduled_pipeline_job,
+        learner_callable=_scheduled_learner_job,
+    )
     scheduler.start()
     try:
         yield
