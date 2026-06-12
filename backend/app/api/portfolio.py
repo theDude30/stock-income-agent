@@ -1,11 +1,38 @@
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
+from decimal import Decimal
 
 from fastapi import APIRouter, Query
 
 from app.db import get_session_factory
+from app.market.price_cache import PriceCache
 from app.pipeline.repo import PipelineRepo
 
 router = APIRouter(prefix="/portfolio")
+
+# Test seam: set to a PriceCache instance to override production wiring.
+_price_cache_override: PriceCache | None = None
+
+# Process-global cache so the 120 s TTL spans requests.
+_price_cache: PriceCache | None = None
+
+
+def _fetch_live_price(ticker: str) -> Decimal:
+    """Latest close from the market-data sources (honors pipeline's _sources_override)."""
+    from app.api.pipeline import _make_sources
+    since = datetime.now(tz=UTC).date() - timedelta(days=7)
+    bars = list(_make_sources().prices.fetch(ticker, since))
+    if not bars:
+        raise LookupError(f"no recent price bars for {ticker}")
+    return Decimal(str(bars[-1].close))
+
+
+def _get_price_cache() -> PriceCache:
+    global _price_cache
+    if _price_cache_override is not None:
+        return _price_cache_override
+    if _price_cache is None:
+        _price_cache = PriceCache(fetch=_fetch_live_price)
+    return _price_cache
 
 
 @router.get("/holdings")
@@ -52,6 +79,44 @@ async def holdings() -> list[dict]:
                 "active_call": active_call,
             })
         return result
+
+
+@router.get("/live")
+async def live() -> dict:
+    cache = _get_price_cache()
+    factory = get_session_factory()
+    async with factory() as session:
+        repo = PipelineRepo(session)
+        positions = await repo.list_open_positions(kind="stock")
+        out = []
+        for pos in positions:
+            stale = False
+            price: Decimal | None
+            try:
+                price, _ = await cache.get(pos.ticker)
+            except Exception:
+                close = await repo.latest_close(pos.ticker)
+                price = Decimal(str(close)) if close is not None else None
+                stale = True
+            if price is not None:
+                cost = pos.avg_entry_price * pos.shares
+                live_pnl = (price - pos.avg_entry_price) * pos.shares
+                live_pnl_pct = live_pnl / cost if cost > 0 else Decimal("0")
+            else:
+                live_pnl = None
+                live_pnl_pct = None
+            out.append({
+                "id": pos.id,
+                "ticker": pos.ticker,
+                "shares": float(pos.shares),
+                "avg_entry_price": float(pos.avg_entry_price),
+                "live_price": float(price) if price is not None else None,
+                "live_pnl": float(live_pnl) if live_pnl is not None else None,
+                "live_pnl_pct": float(live_pnl_pct) if live_pnl_pct is not None else None,
+                "stale": stale,
+                "opened_at": pos.opened_at.isoformat(),
+            })
+        return {"as_of": datetime.now(tz=UTC).isoformat(), "positions": out}
 
 
 @router.get("/income")

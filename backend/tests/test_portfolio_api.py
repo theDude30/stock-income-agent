@@ -96,3 +96,91 @@ async def test_portfolio_api(session, monkeypatch, pg_container):
         perf = r.json()
         assert "ytd_income" in perf
         assert "cost_basis" in perf
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_portfolio_live_marks_to_market(session, monkeypatch, pg_container):
+    for k, v in {
+        "POSTGRES_USER": pg_container.username, "POSTGRES_PASSWORD": pg_container.password,
+        "POSTGRES_DB": pg_container.dbname, "POSTGRES_HOST": pg_container.get_container_host_ip(),
+        "POSTGRES_PORT": str(pg_container.get_exposed_port(5432)),
+    }.items():
+        monkeypatch.setenv(k, v)
+
+    _now = datetime(2026, 6, 11, 17, 15, tzinfo=UTC)
+    repo = PipelineRepo(session)
+    await repo.upsert_stocks([StockMeta("PEP", "PepsiCo", "S", "B")], today=_now.date())
+    run_id = await repo.start_run(now=_now)
+    rec_id = await repo.insert_recommendation(
+        run_id=run_id, type="add_position", ticker="PEP", confidence="high",
+        payload={}, reasoning="r", signals_snapshot={}, model="m", prompt_version="v", now=_now)
+    await repo.open_position(
+        rec_id=rec_id, ticker="PEP", kind="stock",
+        shares=Decimal("10"), avg_entry_price=Decimal("160"),
+        strike=None, expiration_date=None, now=_now)
+    await session.commit()
+
+    from app.api import portfolio as portfolio_api
+    from app.market.price_cache import PriceCache
+
+    portfolio_api._price_cache_override = PriceCache(fetch=lambda t: Decimal("165"))
+    try:
+        app = create_app()
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            r = await client.get("/portfolio/live")
+            assert r.status_code == 200
+            body = r.json()
+            assert "as_of" in body
+            pep = next(p for p in body["positions"] if p["ticker"] == "PEP")
+            assert pep["live_price"] == 165.0
+            assert pep["live_pnl"] == 50.0          # (165 - 160) * 10
+            assert pep["live_pnl_pct"] == pytest.approx(50.0 / 1600.0)
+            assert pep["stale"] is False
+    finally:
+        portfolio_api._price_cache_override = None
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_portfolio_live_falls_back_to_db_close_when_fetch_fails(
+    session, monkeypatch, pg_container
+):
+    for k, v in {
+        "POSTGRES_USER": pg_container.username, "POSTGRES_PASSWORD": pg_container.password,
+        "POSTGRES_DB": pg_container.dbname, "POSTGRES_HOST": pg_container.get_container_host_ip(),
+        "POSTGRES_PORT": str(pg_container.get_exposed_port(5432)),
+    }.items():
+        monkeypatch.setenv(k, v)
+
+    # PEP position exists from the previous test (shares 10 @ 160, committed).
+    # Give it a DB close so the stale fallback has something to return.
+    await session.execute(
+        pg_insert(Price).values(
+            ticker="PEP", date=date(2026, 6, 10), open=Decimal("162"), high=Decimal("163"),
+            low=Decimal("161"), close=Decimal("162"), adj_close=Decimal("162"), volume=500,
+        ).on_conflict_do_update(
+            index_elements=["ticker", "date"],
+            set_={"close": Decimal("162"), "adj_close": Decimal("162")},
+        )
+    )
+    await session.commit()
+
+    from app.api import portfolio as portfolio_api
+    from app.market.price_cache import PriceCache
+
+    def _boom(ticker: str) -> Decimal:
+        raise LookupError("yfinance down")
+
+    portfolio_api._price_cache_override = PriceCache(fetch=_boom)
+    try:
+        app = create_app()
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            r = await client.get("/portfolio/live")
+            assert r.status_code == 200
+            pep = next(p for p in r.json()["positions"] if p["ticker"] == "PEP")
+            assert pep["stale"] is True
+            assert pep["live_price"] == 162.0
+            assert pep["live_pnl"] == 20.0          # (162 - 160) * 10
+    finally:
+        portfolio_api._price_cache_override = None
