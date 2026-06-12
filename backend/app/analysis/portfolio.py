@@ -38,3 +38,10 @@ def compute_assignment_gain(
 ) -> Decimal:
     gain = (strike - avg_entry_price) * shares
     return gain if gain > 0 else Decimal("0")
+
+
+def compute_adjusted_return_pct(start_adj_close: Decimal, end_adj_close: Decimal) -> Decimal:
+    """Total return implied by adjusted closes (dividends are baked into adj_close)."""
+    if start_adj_close <= 0:
+        return Decimal("0")
+    return (end_adj_close - start_adj_close) / start_adj_close

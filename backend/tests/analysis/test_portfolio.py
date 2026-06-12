@@ -49,3 +49,11 @@ def test_compute_assignment_gain():
     assert compute_assignment_gain(Decimal("55"), Decimal("50"), Decimal("100")) == Decimal("500")
     # strike below entry → 0
     assert compute_assignment_gain(Decimal("48"), Decimal("50"), Decimal("100")) == Decimal("0")
+
+
+def test_compute_adjusted_return_pct():
+    from app.analysis.portfolio import compute_adjusted_return_pct
+    # 100 → 105 adjusted = +5%
+    assert compute_adjusted_return_pct(Decimal("100"), Decimal("105")) == Decimal("0.05")
+    # guard: non-positive start
+    assert compute_adjusted_return_pct(Decimal("0"), Decimal("105")) == Decimal("0")

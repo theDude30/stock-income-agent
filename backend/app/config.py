@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     anthropic_api_key: str = Field(default="")
     llm_model: str = Field(default="claude-sonnet-4-6")
 
+    # Annualized 1-month Treasury yield (%) used as the performance baseline
+    # (design 5b §2: config constant; optionally ^IRX-refreshed later).
+    treasury_1m_yield_pct: float = Field(default=4.2)
+
     notifications_enabled: bool = Field(default=False)
     smtp_host: str = Field(default="")
     smtp_port: int = Field(default=587)
