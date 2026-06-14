@@ -166,7 +166,7 @@ Key principles:
 
 All endpoints are prefixed `/` on the api container (port 8000); the React frontend reaches them via `/api/*` (nginx proxy in prod, Vite proxy in dev).
 
-> **Status:** Health, pipeline, recommendations, and a subset of stocks endpoints are implemented (Sub-projects 1–3). Portfolio and trades endpoints landed in Sub-project 4; learning (`/lessons`, `/feedback`), `/settings` (read), and notifier-related alerts landed in Sub-project 5a. Remaining `planned` rows (stocks list/detail/prices/dividends/news, `/portfolio/live`, `PATCH /settings`, `/settings/kill-switch`) are not yet built.
+> **Status:** Health, pipeline, recommendations, and a subset of stocks endpoints are implemented (Sub-projects 1–3). Portfolio and trades endpoints landed in Sub-project 4; learning (`/lessons`, `/feedback`), `/settings` (read), and notifier-related alerts landed in Sub-project 5a. Dashboard read endpoints (`/portfolio/live`, completed `/portfolio/performance`, `/stocks/{ticker}` detail/prices/dividends/news/safety-history) landed in Sub-project 5b-i. Remaining `planned` rows (`/stocks` list, `PATCH /settings`, `/settings/kill-switch`) are not yet built.
 
 ### Health & ops
 
@@ -182,11 +182,12 @@ All endpoints are prefixed `/` on the api container (port 8000); the React front
 | Method | Path | Status | Description |
 |---|---|---|---|
 | `GET` | `/stocks` | planned | List universe (S&P 500); filter by sector, dividend status |
-| `GET` | `/stocks/{ticker}` | planned | Stock detail + latest signals |
-| `GET` | `/stocks/{ticker}/prices?from=&to=` | planned | OHLCV history |
-| `GET` | `/stocks/{ticker}/dividends` | planned | Dividend history |
-| `GET` | `/stocks/{ticker}/news?limit=` | planned | Recent news for ticker |
+| `GET` | `/stocks/{ticker}` | ✅ implemented | Stock detail + latest signals |
+| `GET` | `/stocks/{ticker}/prices?from=&to=` | ✅ implemented | OHLCV history |
+| `GET` | `/stocks/{ticker}/dividends` | ✅ implemented | Dividend history |
+| `GET` | `/stocks/{ticker}/news?limit=` | ✅ implemented | Recent news for ticker |
 | `GET` | `/stocks/{ticker}/safety-score` | ✅ implemented | Latest LLM safety score + reasoning |
+| `GET` | `/stocks/{ticker}/safety-score/history?limit=` | ✅ implemented | Safety-score series (newest first) |
 | `GET` | `/screenings?run_id=` | ✅ implemented | Dividend-screener results for a run (defaults to latest run) |
 
 ### Recommendations
@@ -202,7 +203,7 @@ All endpoints are prefixed `/` on the api container (port 8000); the React front
 
 | Method | Path | Status | Description |
 |---|---|---|---|
-| `GET` | `/portfolio/live` | planned | Current positions with mark-to-market P&L (2-min price cache) |
+| `GET` | `/portfolio/live` | ✅ implemented | Current positions with mark-to-market P&L (2-min price cache, stale fallback) |
 | `GET` | `/portfolio/holdings` | ✅ implemented | Open positions + yields + safety scores |
 | `GET` | `/portfolio/income?from=&to=` | ✅ implemented | Income events in range |
 | `GET` | `/portfolio/income/calendar?days=30` | ✅ implemented | Next-N-days projected income |
@@ -288,7 +289,7 @@ Useful for fast iteration on the API. Uses a local uv-managed venv and a testcon
 cd backend
 uv venv                                # creates .venv/
 uv pip install -e ".[dev]"             # installs runtime + dev deps
-.venv/bin/pytest -m "not slow" -v      # 124 tests; add -m slow for live-API tests
+.venv/bin/pytest -m "not slow" -v      # 144 tests; add -m slow for live-API tests
 .venv/bin/ruff check .                 # lint
 ```
 
@@ -363,7 +364,7 @@ Makefile
 | **2. Data ingestion** | ✅ done | yfinance prices/dividends/options + news RSS; daily pipeline shell |
 | **3. Analysis & recommendations** | ✅ done | DividendScreener, DividendSafetyAnalyst LLM, OptionsRecommender LLM, Recommender |
 | **4. Paper trading & income tracking** | ✅ done | Executor, IncomeTracker, full dividend + covered-call simulation, feedback |
-| **5. Dashboard & learning loop** | 5a done / 5b planned | Backend (5a): weekly Learner, alerts/notifier (email digest), learning + settings APIs — done. Frontend (5b): all 5 React tabs wired — planned |
+| **5. Dashboard & learning loop** | 5a/5b-i done / 5b-ii planned | Backend (5a): weekly Learner, alerts/notifier (email digest), learning + settings APIs — done. Backend (5b-i): `/portfolio/live`, completed `/portfolio/performance`, `/stocks/{ticker}` detail/prices/dividends/news/safety-history — done. Frontend (5b-ii): all 5 React tabs wired — planned |
 | **Phase 2 (later)** | designed-in | Auto-approval per rec type, safety rails enforcement, kill switch |
 | **Phase 3 (later)** | out of scope | Real broker integration (Alpaca / IBKR), live trading |
 

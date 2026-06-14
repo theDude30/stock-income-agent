@@ -96,3 +96,144 @@ async def test_portfolio_api(session, monkeypatch, pg_container):
         perf = r.json()
         assert "ytd_income" in perf
         assert "cost_basis" in perf
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_portfolio_live_marks_to_market(session, monkeypatch, pg_container):
+    for k, v in {
+        "POSTGRES_USER": pg_container.username, "POSTGRES_PASSWORD": pg_container.password,
+        "POSTGRES_DB": pg_container.dbname, "POSTGRES_HOST": pg_container.get_container_host_ip(),
+        "POSTGRES_PORT": str(pg_container.get_exposed_port(5432)),
+    }.items():
+        monkeypatch.setenv(k, v)
+
+    _now = datetime(2026, 6, 11, 17, 15, tzinfo=UTC)
+    repo = PipelineRepo(session)
+    await repo.upsert_stocks([StockMeta("PEP", "PepsiCo", "S", "B")], today=_now.date())
+    run_id = await repo.start_run(now=_now)
+    rec_id = await repo.insert_recommendation(
+        run_id=run_id, type="add_position", ticker="PEP", confidence="high",
+        payload={}, reasoning="r", signals_snapshot={}, model="m", prompt_version="v", now=_now)
+    await repo.open_position(
+        rec_id=rec_id, ticker="PEP", kind="stock",
+        shares=Decimal("10"), avg_entry_price=Decimal("160"),
+        strike=None, expiration_date=None, now=_now)
+    await session.commit()
+
+    from app.api import portfolio as portfolio_api
+    from app.market.price_cache import PriceCache
+
+    portfolio_api._price_cache_override = PriceCache(fetch=lambda t: Decimal("165"))
+    try:
+        app = create_app()
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            r = await client.get("/portfolio/live")
+            assert r.status_code == 200
+            body = r.json()
+            assert "as_of" in body
+            pep = next(p for p in body["positions"] if p["ticker"] == "PEP")
+            assert pep["live_price"] == 165.0
+            assert pep["live_pnl"] == 50.0          # (165 - 160) * 10
+            assert pep["live_pnl_pct"] == pytest.approx(50.0 / 1600.0)
+            assert pep["stale"] is False
+    finally:
+        portfolio_api._price_cache_override = None
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_portfolio_live_falls_back_to_db_close_when_fetch_fails(
+    session, monkeypatch, pg_container
+):
+    for k, v in {
+        "POSTGRES_USER": pg_container.username, "POSTGRES_PASSWORD": pg_container.password,
+        "POSTGRES_DB": pg_container.dbname, "POSTGRES_HOST": pg_container.get_container_host_ip(),
+        "POSTGRES_PORT": str(pg_container.get_exposed_port(5432)),
+    }.items():
+        monkeypatch.setenv(k, v)
+
+    # PEP position exists from the previous test (shares 10 @ 160, committed).
+    # Give it a DB close so the stale fallback has something to return.
+    await session.execute(
+        pg_insert(Price).values(
+            ticker="PEP", date=date(2026, 6, 10), open=Decimal("162"), high=Decimal("163"),
+            low=Decimal("161"), close=Decimal("162"), adj_close=Decimal("162"), volume=500,
+        ).on_conflict_do_update(
+            index_elements=["ticker", "date"],
+            set_={"close": Decimal("162"), "adj_close": Decimal("162")},
+        )
+    )
+    await session.commit()
+
+    from app.api import portfolio as portfolio_api
+    from app.market.price_cache import PriceCache
+
+    def _boom(ticker: str) -> Decimal:
+        raise LookupError("yfinance down")
+
+    portfolio_api._price_cache_override = PriceCache(fetch=_boom)
+    try:
+        app = create_app()
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            r = await client.get("/portfolio/live")
+            assert r.status_code == 200
+            pep = next(p for p in r.json()["positions"] if p["ticker"] == "PEP")
+            assert pep["stale"] is True
+            assert pep["live_price"] == 162.0
+            assert pep["live_pnl"] == 20.0          # (162 - 160) * 10
+    finally:
+        portfolio_api._price_cache_override = None
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_portfolio_performance_includes_spy_and_treasury(
+    session, monkeypatch, pg_container
+):
+    for k, v in {
+        "POSTGRES_USER": pg_container.username, "POSTGRES_PASSWORD": pg_container.password,
+        "POSTGRES_DB": pg_container.dbname, "POSTGRES_HOST": pg_container.get_container_host_ip(),
+        "POSTGRES_PORT": str(pg_container.get_exposed_port(5432)),
+    }.items():
+        monkeypatch.setenv(k, v)
+
+    from app.api import pipeline as pipeline_api
+    from app.sources.base import PriceBar, Sources
+    from app.sources.fakes import (
+        InMemoryDividendSource,
+        InMemoryNewsSource,
+        InMemoryOptionsSource,
+        InMemoryPriceSource,
+        InMemoryUniverseSource,
+    )
+
+    spy_bars = [
+        PriceBar(date=date(2026, 1, 2), open=100.0, high=100.0, low=100.0,
+                 close=100.0, adj_close=100.0, volume=1),
+        PriceBar(date=date(2026, 6, 10), open=105.0, high=105.0, low=105.0,
+                 close=105.0, adj_close=105.0, volume=1),
+    ]
+    pipeline_api._sources_override = Sources(
+        universe=InMemoryUniverseSource([]),
+        prices=InMemoryPriceSource({"SPY": spy_bars}),
+        dividends=InMemoryDividendSource({}),
+        options=InMemoryOptionsSource({}),
+        news=InMemoryNewsSource({}),
+    )
+    try:
+        app = create_app()
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            r = await client.get("/portfolio/performance")
+            assert r.status_code == 200
+            perf = r.json()
+            assert "note" not in perf  # SP4 placeholder removed
+            assert "ytd_income" in perf
+            assert "cost_basis" in perf
+            assert "ytd_capital_pnl" in perf
+            assert "ytd_total_return_pct" in perf
+            assert perf["spy_total_return_pct"] == pytest.approx(0.05)  # 100 → 105
+            assert perf["treasury_1m_yield_pct"] == 4.2
+            assert 0 < perf["treasury_ytd_return_pct"] < 0.042  # pro-rated YTD fraction
+    finally:
+        pipeline_api._sources_override = None

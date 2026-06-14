@@ -1,4 +1,6 @@
-from fastapi import APIRouter, HTTPException
+from datetime import date
+
+from fastapi import APIRouter, HTTPException, Query
 
 from app.db import get_session_factory
 from app.pipeline.repo import PipelineRepo
@@ -24,6 +26,94 @@ async def safety_score(ticker: str) -> dict:
             "reasoning": s.llm_reasoning, "llm_model": s.llm_model,
             "llm_prompt_version": s.llm_prompt_version, "scored_at": s.scored_at.isoformat(),
         }
+
+
+@router.get("/stocks/{ticker}")
+async def stock_detail(ticker: str) -> dict:
+    factory = get_session_factory()
+    async with factory() as session:
+        repo = PipelineRepo(session)
+        stock = await repo.get_stock(ticker)
+        if stock is None:
+            raise HTTPException(status_code=404, detail="unknown ticker")
+        screening = await repo.latest_screening(ticker)
+        safety = await repo.latest_safety_score(ticker)
+        return {
+            "ticker": stock.ticker, "name": stock.name, "sector": stock.sector,
+            "industry": stock.industry, "active": stock.active,
+            "latest_screening": {
+                "dividend_quality_score": float(screening.dividend_quality_score),
+                "passed_screen": screening.passed_screen,
+                "signals": screening.signals,
+                "created_at": screening.created_at.isoformat(),
+            } if screening is not None else None,
+            "latest_safety_score": {
+                "score": safety.score,
+                "concerns": list(safety.concerns or []),
+                "reasoning": safety.llm_reasoning,
+                "scored_at": safety.scored_at.isoformat(),
+            } if safety is not None else None,
+        }
+
+
+@router.get("/stocks/{ticker}/prices")
+async def stock_prices(
+    ticker: str,
+    from_: date | None = Query(None, alias="from"),  # noqa: B008
+    to: date | None = None,
+) -> list[dict]:
+    factory = get_session_factory()
+    async with factory() as session:
+        repo = PipelineRepo(session)
+        rows = await repo.prices_between(ticker, from_=from_, to=to)
+        return [
+            {"date": p.date.isoformat(), "open": float(p.open), "high": float(p.high),
+             "low": float(p.low), "close": float(p.close), "adj_close": float(p.adj_close),
+             "volume": p.volume}
+            for p in rows
+        ]
+
+
+@router.get("/stocks/{ticker}/dividends")
+async def stock_dividends(ticker: str) -> list[dict]:
+    factory = get_session_factory()
+    async with factory() as session:
+        repo = PipelineRepo(session)
+        rows = await repo.list_dividend_history(ticker)
+        return [
+            {"ex_date": d.ex_date.isoformat(),
+             "pay_date": d.pay_date.isoformat() if d.pay_date is not None else None,
+             "amount_per_share": float(d.amount_per_share),
+             "frequency": d.frequency}
+            for d in rows
+        ]
+
+
+@router.get("/stocks/{ticker}/news")
+async def stock_news(ticker: str, limit: int = 20) -> list[dict]:
+    factory = get_session_factory()
+    async with factory() as session:
+        repo = PipelineRepo(session)
+        rows = await repo.list_news(ticker, limit=limit)
+        return [
+            {"id": n.id, "published_at": n.published_at.isoformat(), "source": n.source,
+             "url": n.url, "title": n.title, "summary": n.summary,
+             "sentiment_score": float(n.sentiment_score) if n.sentiment_score is not None else None}
+            for n in rows
+        ]
+
+
+@router.get("/stocks/{ticker}/safety-score/history")
+async def safety_score_history(ticker: str, limit: int = 20) -> list[dict]:
+    factory = get_session_factory()
+    async with factory() as session:
+        repo = PipelineRepo(session)
+        rows = await repo.safety_score_history(ticker, limit=limit)
+        return [
+            {"score": s.score, "concerns": list(s.concerns or []),
+             "scored_at": s.scored_at.isoformat()}
+            for s in rows
+        ]
 
 
 @router.get("/screenings")
