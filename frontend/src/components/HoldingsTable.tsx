@@ -32,7 +32,7 @@ export default function HoldingsTable({ rows, onSelect }: HoldingsTableProps) {
             <td>{formatCurrency(r.avg_entry_price)}</td>
             <td>{formatCurrency(r.live_price)}</td>
             <td>{formatPercent(r.pct_of_portfolio)}</td>
-            <td className={(r.live_pnl ?? 0) >= 0 ? styles.pos : styles.neg}>
+            <td className={(r.live_pnl ?? r.unrealized_pnl ?? 0) >= 0 ? styles.pos : styles.neg}>
               {formatCurrency(r.live_pnl ?? r.unrealized_pnl)}
             </td>
             <td>
