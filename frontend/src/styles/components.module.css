@@ -1,0 +1,44 @@
+.shell { min-height: 100vh; }
+.header { padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--color-border); }
+.title { margin: 0 0 var(--space-3); font-size: 1.25rem; }
+.main { padding: var(--space-4); }
+
+.nav { display: flex; gap: var(--space-2); }
+.tab { padding: var(--space-2) var(--space-3); border-radius: var(--radius); color: var(--color-muted); }
+.active { background: var(--color-surface); color: var(--color-text); }
+
+.cardGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--space-3); }
+.card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); padding: var(--space-3); }
+.label { color: var(--color-muted); font-size: 0.8rem; }
+.value { font-size: 1.5rem; font-weight: 600; margin-top: var(--space-1); }
+.sub { color: var(--color-muted); font-size: 0.8rem; margin-top: var(--space-1); }
+
+.badge { display: inline-block; padding: 2px var(--space-2); border-radius: 999px; font-size: 0.75rem; text-transform: capitalize; }
+.running { background: var(--color-accent); color: #fff; }
+.success { background: var(--color-green); color: #062; }
+.partial { background: var(--color-yellow); color: #420; }
+.failed { background: var(--color-red); color: #fff; }
+.unknown { background: var(--color-border); color: var(--color-text); }
+
+.table { width: 100%; border-collapse: collapse; }
+.table th, .table td { text-align: left; padding: var(--space-2); border-bottom: 1px solid var(--color-border); }
+.row { cursor: pointer; }
+.row:hover { background: var(--color-surface); }
+.pos { color: var(--color-green); }
+.neg { color: var(--color-red); }
+.staleTag { color: var(--color-yellow); font-size: 0.75rem; margin-left: var(--space-1); }
+
+.drawer { position: fixed; top: 0; right: 0; width: 420px; max-width: 90vw; height: 100vh; overflow-y: auto; background: var(--color-surface); border-left: 1px solid var(--color-border); padding: var(--space-4); }
+.drawerClose { float: right; background: none; border: none; color: var(--color-muted); font-size: 1.2rem; cursor: pointer; }
+
+.recGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--space-3); }
+.recActions { display: flex; gap: var(--space-2); margin-top: var(--space-3); }
+.btn { padding: var(--space-2) var(--space-3); border-radius: var(--radius); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); cursor: pointer; }
+.btnPrimary { background: var(--color-accent); color: #fff; border-color: var(--color-accent); }
+.btnDisabled { opacity: 0.5; cursor: not-allowed; }
+
+.section { margin-bottom: var(--space-4); }
+.heading { font-size: 1.1rem; margin: 0 0 var(--space-3); }
+.muted { color: var(--color-muted); }
+.figure { margin: 0; }
+.figcaption { color: var(--color-muted); font-size: 0.85rem; margin-bottom: var(--space-2); }
