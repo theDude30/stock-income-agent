@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
@@ -11,6 +12,7 @@ from app.market.price_cache import PriceCache
 from app.pipeline.repo import PipelineRepo
 
 router = APIRouter(prefix="/portfolio")
+logger = logging.getLogger(__name__)
 
 # Test seam: set to a PriceCache instance to override production wiring.
 _price_cache_override: PriceCache | None = None
@@ -97,7 +99,8 @@ async def live() -> dict:
             price: Decimal | None
             try:
                 price, _ = await cache.get(pos.ticker)
-            except Exception:
+            except Exception as e:
+                logger.warning("live: %s failed: %s", pos.ticker, e)
                 close = await repo.latest_close(pos.ticker)
                 price = Decimal(str(close)) if close is not None else None
                 stale = True
@@ -185,7 +188,8 @@ def _spy_ytd_total_return_pct(ytd_start: date) -> float | None:
     from app.api.pipeline import _make_sources
     try:
         bars = list(_make_sources().prices.fetch("SPY", ytd_start))
-    except Exception:
+    except Exception as e:
+        logger.warning("performance: SPY total return fetch failed: %s", e)
         return None
     if len(bars) < 2:
         return None
