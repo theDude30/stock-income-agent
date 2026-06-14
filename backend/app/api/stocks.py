@@ -89,6 +89,33 @@ async def stock_dividends(ticker: str) -> list[dict]:
         ]
 
 
+@router.get("/stocks/{ticker}/news")
+async def stock_news(ticker: str, limit: int = 20) -> list[dict]:
+    factory = get_session_factory()
+    async with factory() as session:
+        repo = PipelineRepo(session)
+        rows = await repo.list_news(ticker, limit=limit)
+        return [
+            {"id": n.id, "published_at": n.published_at.isoformat(), "source": n.source,
+             "url": n.url, "title": n.title, "summary": n.summary,
+             "sentiment_score": float(n.sentiment_score) if n.sentiment_score is not None else None}
+            for n in rows
+        ]
+
+
+@router.get("/stocks/{ticker}/safety-score/history")
+async def safety_score_history(ticker: str, limit: int = 20) -> list[dict]:
+    factory = get_session_factory()
+    async with factory() as session:
+        repo = PipelineRepo(session)
+        rows = await repo.safety_score_history(ticker, limit=limit)
+        return [
+            {"score": s.score, "concerns": list(s.concerns or []),
+             "scored_at": s.scored_at.isoformat()}
+            for s in rows
+        ]
+
+
 @router.get("/screenings")
 async def screenings(run_id: int | None = None) -> list[dict]:
     factory = get_session_factory()

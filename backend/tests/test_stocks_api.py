@@ -112,3 +112,46 @@ async def test_stock_detail_prices_dividends(session, monkeypatch, pg_container)
         divs = r.json()
         assert [d["ex_date"] for d in divs] == ["2026-06-05", "2026-03-06"]
         assert divs[0]["amount_per_share"] == 1.22
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_stock_news_and_safety_history(session, monkeypatch, pg_container):
+    for k, v in {
+        "POSTGRES_USER": pg_container.username, "POSTGRES_PASSWORD": pg_container.password,
+        "POSTGRES_DB": pg_container.dbname, "POSTGRES_HOST": pg_container.get_container_host_ip(),
+        "POSTGRES_PORT": str(pg_container.get_exposed_port(5432)),
+    }.items():
+        monkeypatch.setenv(k, v)
+
+    from app.sources.base import NewsItemDTO
+
+    repo = PipelineRepo(session)
+    # KMB exists from the previous test (with one safety score at 2026-06-11).
+    await repo.insert_news("KMB", [
+        NewsItemDTO(url="https://example.com/kmb/1", title="KMB raises dividend", summary="up",
+                    source="example", published_at=datetime(2026, 6, 9, tzinfo=UTC)),
+        NewsItemDTO(url="https://example.com/kmb/2", title="KMB earnings beat", summary="beat",
+                    source="example", published_at=datetime(2026, 6, 10, tzinfo=UTC)),
+    ])
+    # second, older safety score → history of 2
+    await repo.insert_safety_score("KMB", 74, 0.6, 1.8, 0.7, 51, ["watch payout"], "ok",
+                                   "m", "v", datetime(2026, 3, 11, tzinfo=UTC))
+    await session.commit()
+
+    app = create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        r = await client.get("/stocks/KMB/news?limit=1")
+        assert r.status_code == 200
+        news = r.json()
+        assert len(news) == 1
+        assert news[0]["title"] == "KMB earnings beat"  # newest first
+
+        r = await client.get("/stocks/KMB/safety-score/history")
+        assert r.status_code == 200
+        hist = r.json()
+        assert [h["score"] for h in hist] == [79, 74]  # newest first
+        assert hist[1]["concerns"] == ["watch payout"]
+
+        r = await client.get("/stocks/KMB/safety-score/history?limit=1")
+        assert [h["score"] for h in r.json()] == [79]
