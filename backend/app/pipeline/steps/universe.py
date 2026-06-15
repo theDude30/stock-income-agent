@@ -7,13 +7,12 @@ class UniverseStep(Step):
     name = "universe"
     is_critical = False
 
-    def should_run(self, ctx: StepContext) -> bool:
+    async def should_run(self, ctx: StepContext) -> bool:
         now = ctx.now()
         # Run on the first weekday (Mon=0..Fri=4) of the month, or on an empty stocks table.
-        if now.weekday() > 4:
-            return False
-        # First weekday of the month = day 1-3 (Mon Jun 1, or if Sat/Sun, first Monday is the 2nd or 3rd).
-        return now.day <= 3 and now.weekday() <= 4 and self._is_first_weekday_of_month(now.date())
+        if now.weekday() <= 4 and now.day <= 3 and self._is_first_weekday_of_month(now.date()):
+            return True
+        return not await ctx.repo.has_any_stocks()
 
     def _is_first_weekday_of_month(self, d: date) -> bool:
         # The first weekday of the month is day 1 if Mon-Fri,

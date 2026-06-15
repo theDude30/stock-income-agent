@@ -41,7 +41,7 @@ class Step(ABC):
     name: str = ""
     is_critical: bool = False
 
-    def should_run(self, ctx: StepContext) -> bool:
+    async def should_run(self, ctx: StepContext) -> bool:
         """Override to gate execution (e.g., universe runs only on the 1st of the month)."""
         return True
 

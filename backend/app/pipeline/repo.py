@@ -69,6 +69,10 @@ class PipelineRepo:
         rows = await self.session.execute(select(Stock.ticker).where(Stock.active.is_(True)).order_by(Stock.ticker))
         return [r[0] for r in rows.all()]
 
+    async def has_any_stocks(self) -> bool:
+        result = await self.session.execute(select(Stock.ticker).limit(1))
+        return result.first() is not None
+
     async def held_tickers(self) -> list[str]:
         rows = await self.session.execute(
             select(Position.ticker).where(

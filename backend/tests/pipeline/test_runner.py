@@ -152,7 +152,7 @@ async def test_runner_skips_steps_with_should_run_false(session, monkeypatch, pg
     class GatedStep(Step):
         name = "gated"
         is_critical = False
-        def should_run(self, ctx): return False
+        async def should_run(self, ctx): return False
         async def run(self, ctx): return StepResult(ok_count=1)
 
     ctx = _make_ctx(session)
