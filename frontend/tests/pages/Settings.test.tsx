@@ -9,6 +9,7 @@ import { server } from "../msw/server";
 describe("Settings", () => {
   it("renders run badges, settings, lessons; re-runs a step; toggles a lesson", async () => {
     let triggeredStep: string | null = null;
+    let runTriggerCount = 0;
     let ignoredCalled = false;
     server.use(
       http.get("/api/pipeline/runs", () =>
@@ -18,6 +19,7 @@ describe("Settings", () => {
         ]),
       ),
       http.post("/api/pipeline/run", ({ request }) => {
+        runTriggerCount += 1;
         triggeredStep = new URL(request.url).searchParams.get("step");
         return HttpResponse.json({ run_id: 11 });
       }),
@@ -59,6 +61,14 @@ describe("Settings", () => {
     // manual re-run
     fireEvent.click(screen.getByRole("button", { name: /re-run screen/i }));
     await waitFor(() => expect(triggeredStep).toBe("screener"));
+
+    // full pipeline run (no step param)
+    fireEvent.click(screen.getByRole("button", { name: /run full pipeline/i }));
+    await waitFor(() => expect(runTriggerCount).toBe(2));
+    expect(triggeredStep).toBeNull();
+    await waitFor(() =>
+      expect(screen.getByText(/triggered full pipeline run/i)).toBeInTheDocument(),
+    );
 
     // lesson ignore toggle
     fireEvent.click(screen.getByRole("button", { name: /ignore/i }));

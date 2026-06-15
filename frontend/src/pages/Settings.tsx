@@ -21,13 +21,13 @@ export default function Settings() {
   const [rerunMessage, setRerunMessage] = useState<string | null>(null);
 
   const rerun = useMutation({
-    mutationFn: (step: string) => triggerRun(step),
+    mutationFn: (step?: string) => triggerRun(step),
     onSuccess: (_data, step) => {
-      setRerunMessage(`Triggered ${step} run.`);
+      setRerunMessage(step ? `Triggered ${step} run.` : "Triggered full pipeline run.");
       queryClient.invalidateQueries({ queryKey: ["pipeline", "runs"] });
     },
     onError: (_err, step) => {
-      setRerunMessage(`Failed to trigger ${step} run.`);
+      setRerunMessage(step ? `Failed to trigger ${step} run.` : "Failed to trigger full pipeline run.");
     },
   });
   const toggleIgnore = useMutation({

@@ -7,7 +7,7 @@ const STEPS = ["screener", "safety", "options", "recommender"];
 
 export interface RunHistoryProps {
   runs: PipelineRun[];
-  onRerun: (step: string) => void;
+  onRerun: (step?: string) => void;
 }
 
 export default function RunHistory({ runs, onRerun }: RunHistoryProps) {
@@ -15,6 +15,9 @@ export default function RunHistory({ runs, onRerun }: RunHistoryProps) {
     <div>
       <h3 className={styles.heading}>Run history</h3>
       <div className={styles.recActions}>
+        <button className={styles.btn} onClick={() => onRerun()}>
+          Run full pipeline
+        </button>
         {STEPS.map((s) => (
           <button key={s} className={styles.btn} onClick={() => onRerun(s)}>
             Re-run {s}
