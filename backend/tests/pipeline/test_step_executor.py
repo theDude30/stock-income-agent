@@ -67,6 +67,33 @@ async def test_executor_add_position(session):
 
 
 @pytest.mark.asyncio(loop_scope="session")
+async def test_executor_add_position_defaults_shares_when_target_is_null(session):
+    repo = PipelineRepo(session)
+    await repo.upsert_stocks([StockMeta("PEP", "PepsiCo", "S", "B")], today=_today)
+
+    from app.models.stocks import Price
+    session.add(Price(ticker="PEP", date=_today, open=Decimal("170"), high=Decimal("171"),
+                      low=Decimal("169"), close=Decimal("170.50"), adj_close=Decimal("170.50"),
+                      volume=1000000))
+    await session.flush()
+    run_id = await repo.start_run(now=_now)
+    rec_id = await repo.insert_recommendation(
+        run_id=run_id, type="add_position", ticker="PEP", confidence="high",
+        payload={"target_shares": None, "target_price": "market", "expected_yield": 0.03},
+        reasoning="r", signals_snapshot={}, model="m", prompt_version="v", now=_now)
+    await repo.set_recommendation_status(rec_id, "approved", "user", _now)
+    await session.commit()
+
+    result = await ExecutorStep().run(_ctx(repo, run_id))
+    await session.commit()
+
+    assert result.ok_count >= 1
+    positions = await repo.list_open_positions(ticker="PEP")
+    assert len(positions) == 1
+    assert positions[0].shares == Decimal("10")
+
+
+@pytest.mark.asyncio(loop_scope="session")
 async def test_executor_sell_covered_call(session):
     repo = PipelineRepo(session)
     await repo.upsert_stocks([StockMeta("JNJ", "J&J", "HC", "B")], today=_today)
