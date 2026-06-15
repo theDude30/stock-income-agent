@@ -364,9 +364,11 @@ Makefile
 | **2. Data ingestion** | ✅ done | yfinance prices/dividends/options + news RSS; daily pipeline shell |
 | **3. Analysis & recommendations** | ✅ done | DividendScreener, DividendSafetyAnalyst LLM, OptionsRecommender LLM, Recommender |
 | **4. Paper trading & income tracking** | ✅ done | Executor, IncomeTracker, full dividend + covered-call simulation, feedback |
-| **5. Dashboard & learning loop** | 5a/5b-i done / 5b-ii planned | Backend (5a): weekly Learner, alerts/notifier (email digest), learning + settings APIs — done. Backend (5b-i): `/portfolio/live`, completed `/portfolio/performance`, `/stocks/{ticker}` detail/prices/dividends/news/safety-history — done. Frontend (5b-ii): all 5 React tabs wired — planned |
+| **5. Dashboard & learning loop** | ✅ done | Backend (5a): weekly Learner, alerts/notifier (email digest), learning + settings APIs. Backend (5b-i): `/portfolio/live`, completed `/portfolio/performance`, `/stocks/{ticker}` detail/prices/dividends/news/safety-history. Frontend (5b-ii): all 5 React tabs (Income default, Holdings, Recommendations, Performance, Settings) wired via react-router-dom + Recharts + TanStack Query. |
 | **Phase 2 (later)** | designed-in | Auto-approval per rec type, safety rails enforcement, kill switch |
 | **Phase 3 (later)** | out of scope | Real broker integration (Alpaca / IBKR), live trading |
+
+> **5b-ii deferred (needs new backend endpoints):** forward-12-month projected income, current portfolio yield, and SPY dividend-yield stat cards; Holdings "annual yield / projected income / quality-trend" columns; and call-specific hit-rate breakdowns on Performance. These were omitted from the frontend because no backend endpoint computes them yet — a future backend slice.
 
 Each sub-project has its own implementation plan in `docs/superpowers/plans/`.
 
