@@ -6,7 +6,7 @@ import {
   approveRecommendation,
   rejectRecommendation,
 } from "../api/recommendations";
-import RecommendationCard from "../components/RecommendationCard";
+import RecommendationsTable from "../components/RecommendationsTable";
 import styles from "../styles/components.module.css";
 
 export default function Recommendations() {
@@ -59,17 +59,14 @@ export default function Recommendations() {
     <div>
       <h2>Recommendations</h2>
       {rows.length === 0 && <p className={styles.muted}>No pending recommendations.</p>}
-      <div className={styles.recGrid}>
-        {rows.map((r) => (
-          <RecommendationCard
-            key={r.id}
-            summary={r}
-            pending={busyId === r.id}
-            onApprove={(id) => approve.mutate(id)}
-            onReject={(id, reason) => reject.mutate({ id, reason })}
-          />
-        ))}
-      </div>
+      {rows.length > 0 && (
+        <RecommendationsTable
+          rows={rows}
+          busyId={busyId}
+          onApprove={(id) => approve.mutate(id)}
+          onReject={(id, reason) => reject.mutate({ id, reason })}
+        />
+      )}
     </div>
   );
 }

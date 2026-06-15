@@ -85,6 +85,12 @@ class PipelineRepo:
     async def get_stock(self, ticker: str) -> Stock | None:
         return await self.session.get(Stock, ticker)
 
+    async def get_stock_names(self, tickers: list[str]) -> dict[str, str]:
+        if not tickers:
+            return {}
+        rows = await self.session.execute(select(Stock.ticker, Stock.name).where(Stock.ticker.in_(tickers)))
+        return dict(rows.all())
+
     # ----- prices -----
 
     async def upsert_prices(self, ticker: str, bars: Iterable[PriceBar]) -> int:

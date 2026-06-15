@@ -73,14 +73,15 @@ export interface RecommendationSummary {
   run_id: number;
   type: RecType;
   ticker: string;
+  name: string | null;
   confidence: string;
   status: RecStatus;
+  reasoning: string | null;
   created_at: string;
 }
 
 export interface RecommendationDetail extends RecommendationSummary {
   payload: Record<string, unknown>;
-  reasoning: string | null;
   signals_snapshot: Record<string, unknown>;
   llm_model: string | null;
   llm_prompt_version: string | null;

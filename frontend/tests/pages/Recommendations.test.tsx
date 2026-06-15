@@ -7,25 +7,20 @@ import { renderWithProviders } from "../test-utils";
 import { server } from "../msw/server";
 
 const summary = {
-  id: 5, run_id: 1, type: "add_position", ticker: "KO", confidence: "high",
-  status: "pending", created_at: "2026-06-14T00:00:00Z",
-};
-const detail = {
-  ...summary, payload: { target_price: "market" }, reasoning: "Wide moat, safe payout.",
-  signals_snapshot: { safety_score: 90 }, llm_model: "claude", llm_prompt_version: "v1",
-  approval_mode: "manual", decided_by: null, decided_at: null,
+  id: 5, run_id: 1, type: "add_position", ticker: "KO", name: "Coca-Cola Co",
+  confidence: "high", status: "pending", reasoning: "Wide moat, safe payout.",
+  created_at: "2026-06-14T00:00:00Z",
 };
 
 describe("Recommendations", () => {
-  it("shows pending cards with reasoning and removes a card after approval", async () => {
+  it("shows pending rows with reasoning and removes a row after approval", async () => {
     let approved = false;
     server.use(
       http.get("/api/recommendations", () =>
         HttpResponse.json(approved ? [] : [summary])),
-      http.get("/api/recommendations/5", () => HttpResponse.json(detail)),
       http.post("/api/recommendations/5/approve", () => {
         approved = true;
-        return HttpResponse.json({ ...detail, status: "approved" });
+        return HttpResponse.json({ ...summary, status: "approved" });
       }),
     );
 
@@ -33,6 +28,7 @@ describe("Recommendations", () => {
 
     await waitFor(() => expect(screen.getByText(/Wide moat/)).toBeInTheDocument());
     expect(screen.getByText(/KO/)).toBeInTheDocument();
+    expect(screen.getByText(/Coca-Cola Co/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /approve/i }));
 
@@ -43,11 +39,10 @@ describe("Recommendations", () => {
     let rejectedReason: string | null = null;
     server.use(
       http.get("/api/recommendations", () => HttpResponse.json([summary])),
-      http.get("/api/recommendations/5", () => HttpResponse.json(detail)),
       http.post("/api/recommendations/5/reject", async ({ request }) => {
         const body = (await request.json()) as { reason: string };
         rejectedReason = body.reason;
-        return HttpResponse.json({ ...detail, status: "rejected" });
+        return HttpResponse.json({ ...summary, status: "rejected" });
       }),
     );
 
