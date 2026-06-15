@@ -4,6 +4,15 @@ import type { MonthlyIncome } from "../lib/income";
 import styles from "../styles/components.module.css";
 
 export default function MonthlyIncomeChart({ data }: { data: MonthlyIncome[] }) {
+  if (data.length === 0) {
+    return (
+      <figure className={styles.figure}>
+        <figcaption className={styles.figcaption}>Monthly income by source</figcaption>
+        <p className={styles.muted}>No income recorded yet.</p>
+      </figure>
+    );
+  }
+
   return (
     <figure className={styles.figure}>
       <figcaption className={styles.figcaption}>Monthly income by source</figcaption>
