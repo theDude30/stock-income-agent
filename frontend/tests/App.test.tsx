@@ -1,48 +1,22 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { describe, expect, it, beforeEach } from "vitest";
+import { screen, fireEvent } from "@testing-library/react";
 
 import App from "../src/App";
+import { renderWithProviders } from "./test-utils";
+import { server } from "./msw/server";
+import { emptyHandlers } from "./msw/handlers";
 
-function renderWithClient(ui: React.ReactElement) {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  });
-  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
-}
+describe("App routing", () => {
+  beforeEach(() => server.use(...emptyHandlers));
 
-describe("App", () => {
-  beforeEach(() => {
-    vi.stubGlobal("fetch", vi.fn());
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
+  it("redirects '/' to the Income tab", () => {
+    renderWithProviders(<App />, { route: "/" });
+    expect(screen.getByRole("heading", { name: /income overview/i })).toBeInTheDocument();
   });
 
-  it("renders title and healthy status", async () => {
-    (fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      json: async () => ({ status: "ok", database: "ok" }),
-    });
-
-    renderWithClient(<App />);
-
-    expect(screen.getByRole("heading", { name: /stock income agent/i })).toBeInTheDocument();
-    await waitFor(() => {
-      expect(screen.getByText(/api: ok/i)).toBeInTheDocument();
-      expect(screen.getByText(/database: ok/i)).toBeInTheDocument();
-    });
-  });
-
-  it("renders error state when health fetch fails", async () => {
-    (fetch as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("boom"));
-
-    renderWithClient(<App />);
-
-    await waitFor(() => {
-      expect(screen.getByText(/unreachable/i)).toBeInTheDocument();
-    });
+  it("navigates to Holdings when its tab is clicked", () => {
+    renderWithProviders(<App />, { route: "/income" });
+    fireEvent.click(screen.getByRole("link", { name: /holdings/i }));
+    expect(screen.getByRole("heading", { name: /holdings/i, level: 2 })).toBeInTheDocument();
   });
 });

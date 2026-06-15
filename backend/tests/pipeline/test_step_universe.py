@@ -79,21 +79,44 @@ async def test_universe_step_inserts_then_deactivates(session, monkeypatch, pg_c
     assert "MSFT" not in active
 
 
-def test_universe_should_run_first_weekday_of_month():
+class _StubRepo:
+    def __init__(self, has_stocks: bool):
+        self._has_stocks = has_stocks
+
+    async def has_any_stocks(self) -> bool:
+        return self._has_stocks
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_universe_should_run_first_weekday_of_month():
     from app.pipeline.steps.base import StepContext
     from app.pipeline.steps.universe import UniverseStep
 
     step = UniverseStep()
-    # 2026-06-01 is a Monday → first weekday of the month → run
+    # 2026-06-01 is a Monday → first weekday of the month → run, regardless of table state
     ctx_run = StepContext(
-        repo=None, sources=None, run_id=0,
+        repo=_StubRepo(has_stocks=True), sources=None, run_id=0,
         now=lambda: datetime(2026, 6, 1, 21, 15, tzinfo=UTC),
     )
-    assert step.should_run(ctx_run) is True
+    assert await step.should_run(ctx_run) is True
 
-    # 2026-06-15 (third Monday) → skip
+    # 2026-06-15 (third Monday), stocks table already populated → skip
     ctx_skip = StepContext(
-        repo=None, sources=None, run_id=0,
+        repo=_StubRepo(has_stocks=True), sources=None, run_id=0,
         now=lambda: datetime(2026, 6, 15, 21, 15, tzinfo=UTC),
     )
-    assert step.should_run(ctx_skip) is False
+    assert await step.should_run(ctx_skip) is False
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_universe_should_run_on_empty_stocks_table():
+    from app.pipeline.steps.base import StepContext
+    from app.pipeline.steps.universe import UniverseStep
+
+    step = UniverseStep()
+    # 2026-06-15 (not the first weekday), empty stocks table → bootstrap a fresh DB
+    ctx = StepContext(
+        repo=_StubRepo(has_stocks=False), sources=None, run_id=0,
+        now=lambda: datetime(2026, 6, 15, 21, 15, tzinfo=UTC),
+    )
+    assert await step.should_run(ctx) is True

@@ -30,7 +30,7 @@ async def run_pipeline(
     failed_critical = False
 
     for step in steps:
-        if not step.should_run(ctx):
+        if not await step.should_run(ctx):
             logger.info("pipeline: skipping step %s (should_run=False)", step.name)
             continue
         try:

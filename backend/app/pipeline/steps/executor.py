@@ -44,7 +44,7 @@ class ExecutorStep(Step):
         if price is None:
             raise ValueError(f"no close price for {rec.ticker}")
         payload = rec.payload or {}
-        shares = Decimal(str(payload.get("target_shares", 10)))
+        shares = Decimal(str(payload.get("target_shares") or 10))
         price_dec = Decimal(str(price))
 
         position_id = await ctx.repo.open_position(

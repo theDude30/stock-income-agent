@@ -19,6 +19,7 @@ frontend/vitest.config.js
 frontend/vitest.config.d.ts
 
 # Env / local
+.env
 .env.local
 .env.*.local
 *.local

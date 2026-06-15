@@ -13,18 +13,18 @@ class RejectBody(BaseModel):
     reason: str | None = None
 
 
-def _summary(r) -> dict:
+def _summary(r, name: str | None = None) -> dict:
     return {
         "id": r.id, "run_id": r.run_id, "type": r.type, "ticker": r.ticker,
-        "confidence": r.confidence, "status": r.status,
-        "created_at": r.created_at.isoformat(),
+        "name": name, "confidence": r.confidence, "status": r.status,
+        "reasoning": r.reasoning, "created_at": r.created_at.isoformat(),
     }
 
 
-def _full(r) -> dict:
-    out = _summary(r)
+def _full(r, name: str | None = None) -> dict:
+    out = _summary(r, name)
     out.update({
-        "payload": r.payload, "reasoning": r.reasoning,
+        "payload": r.payload,
         "signals_snapshot": r.signals_snapshot, "llm_model": r.llm_model,
         "llm_prompt_version": r.llm_prompt_version,
         "approval_mode": r.approval_mode, "decided_by": r.decided_by,
@@ -39,7 +39,8 @@ async def list_recommendations(status: str | None = "pending", type: str | None 
     async with factory() as session:
         repo = PipelineRepo(session)
         rows = await repo.list_recommendations(status=status, type_=type)
-        return [_summary(r) for r in rows]
+        names = await repo.get_stock_names([r.ticker for r in rows])
+        return [_summary(r, names.get(r.ticker)) for r in rows]
 
 
 @router.get("/{rec_id}")
@@ -50,7 +51,8 @@ async def get_recommendation(rec_id: int) -> dict:
         rec = await repo.get_recommendation(rec_id)
         if rec is None:
             raise HTTPException(status_code=404, detail="recommendation not found")
-        return _full(rec)
+        stock = await repo.get_stock(rec.ticker)
+        return _full(rec, stock.name if stock else None)
 
 
 @router.post("/{rec_id}/approve")
@@ -76,4 +78,5 @@ async def _decide(rec_id: int, status: str, reason: str | None = None) -> dict:
             raise HTTPException(status_code=409, detail=f"recommendation is not pending (status={rec.status})")
         await session.commit()
         updated = await repo.get_recommendation(rec_id)
-        return _full(updated)
+        stock = await repo.get_stock(updated.ticker)
+        return _full(updated, stock.name if stock else None)
