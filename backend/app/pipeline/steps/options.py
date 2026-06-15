@@ -15,13 +15,15 @@ class OptionsStep(Step):
         self,
         watchlist_size: int = 50,
         expirations_within_days: int = 60,
-        concurrency: int = 10,
+        concurrency: int = 2,
         attempts: int = 3,
+        base_delay: float = 5.0,
     ) -> None:
         self.watchlist_size = watchlist_size
         self.expirations_within_days = expirations_within_days
         self.concurrency = concurrency
         self.attempts = attempts
+        self.base_delay = base_delay
 
     async def run(self, ctx: StepContext) -> StepResult:
         today = ctx.now().date()
@@ -49,6 +51,7 @@ class OptionsStep(Step):
                             ctx.sources.options.fetch(ticker, self.expirations_within_days)
                         ),
                         attempts=self.attempts,
+                        base_delay=self.base_delay,
                     )
                     await ctx.repo.insert_options_snapshot(ticker, rows, snapshot_at)
                     return ticker, None
