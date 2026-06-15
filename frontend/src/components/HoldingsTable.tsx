@@ -14,7 +14,7 @@ export default function HoldingsTable({ rows, onSelect }: HoldingsTableProps) {
         <tr>
           <th>Ticker</th>
           <th>Shares</th>
-          <th>Avg cost</th>
+          <th>Buy price</th>
           <th>Live price</th>
           <th>% of portfolio</th>
           <th>P&L</th>
