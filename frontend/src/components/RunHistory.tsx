@@ -3,7 +3,7 @@ import type { PipelineRun } from "../api/types";
 import { formatDate } from "../lib/format";
 import styles from "../styles/components.module.css";
 
-const STEPS = ["screen", "safety", "options", "recommend"];
+const STEPS = ["screener", "safety", "options", "recommender"];
 
 export interface RunHistoryProps {
   runs: PipelineRun[];

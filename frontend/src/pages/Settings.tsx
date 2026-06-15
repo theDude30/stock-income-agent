@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { fetchRuns, triggerRun } from "../api/pipeline";
@@ -17,7 +18,18 @@ export default function Settings() {
   const settings = useQuery({ queryKey: ["settings"], queryFn: fetchSettings });
   const lessons = useQuery({ queryKey: ["lessons", true], queryFn: () => fetchLessons(true) });
 
-  const rerun = useMutation({ mutationFn: (step: string) => triggerRun(step) });
+  const [rerunMessage, setRerunMessage] = useState<string | null>(null);
+
+  const rerun = useMutation({
+    mutationFn: (step: string) => triggerRun(step),
+    onSuccess: (_data, step) => {
+      setRerunMessage(`Triggered ${step} run.`);
+      queryClient.invalidateQueries({ queryKey: ["pipeline", "runs"] });
+    },
+    onError: (_err, step) => {
+      setRerunMessage(`Failed to trigger ${step} run.`);
+    },
+  });
   const toggleIgnore = useMutation({
     mutationFn: ({ id, ignored }: { id: number; ignored: boolean }) => ignoreLesson(id, ignored),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["lessons", true] }),
@@ -32,6 +44,15 @@ export default function Settings() {
     );
   }
 
+  if (settings.isError || runs.isError || lessons.isError) {
+    return (
+      <div>
+        <h2>Settings</h2>
+        <p className={styles.muted}>Failed to load settings.</p>
+      </div>
+    );
+  }
+
   const s = settings.data;
 
   return (
@@ -40,6 +61,7 @@ export default function Settings() {
 
       <section className={styles.section}>
         <RunHistory runs={runs.data ?? []} onRerun={(step) => rerun.mutate(step)} />
+        {rerunMessage && <p className={styles.muted}>{rerunMessage}</p>}
       </section>
 
       <section className={styles.section}>

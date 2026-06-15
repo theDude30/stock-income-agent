@@ -58,7 +58,7 @@ describe("Settings", () => {
 
     // manual re-run
     fireEvent.click(screen.getByRole("button", { name: /re-run screen/i }));
-    await waitFor(() => expect(triggeredStep).toBe("screen"));
+    await waitFor(() => expect(triggeredStep).toBe("screener"));
 
     // lesson ignore toggle
     fireEvent.click(screen.getByRole("button", { name: /ignore/i }));
